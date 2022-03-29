@@ -1,3 +1,5 @@
+// Package v1 contains the full set of handler functions and
+// routes supported by the v1 web api.
 package v1
 
 import (

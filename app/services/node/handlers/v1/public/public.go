@@ -1,3 +1,4 @@
+// Package public maintains the group of handlers for public access.
 package public
 
 import (

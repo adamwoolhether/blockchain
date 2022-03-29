@@ -1,3 +1,4 @@
+// Package accounts maintains account balances and other account information.
 package accounts
 
 import (
