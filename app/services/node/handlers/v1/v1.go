@@ -23,5 +23,5 @@ func PublicRoutes(app *web.App, cfg Config) {
 		// State: cfg.State,
 	}
 	
-	app.Handle(http.MethodGet, version, "/test", pbl.Test)
+	app.Handle(http.MethodGet, version, "/genesis", pbl.Genesis)
 }
