@@ -9,6 +9,7 @@ import (
 	
 	v1 "github.com/adamwoolhether/blockchain/app/services/node/handlers/v1"
 	"github.com/adamwoolhether/blockchain/business/web/v1/mid"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/web"
 )
 
@@ -16,6 +17,7 @@ import (
 type MuxConfig struct {
 	Shutdown chan os.Signal
 	Log      *zap.SugaredLogger
+	State    *state.State
 }
 
 // PublicMux constructs a http.Handler with all application routes defined.
@@ -38,7 +40,8 @@ func PublicMux(cfg MuxConfig) http.Handler {
 	
 	// Load the v1 routes.
 	v1.PublicRoutes(app, v1.Config{
-		Log: cfg.Log,
+		Log:   cfg.Log,
+		State: cfg.State,
 	})
 	
 	return app

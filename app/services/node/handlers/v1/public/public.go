@@ -6,24 +6,26 @@ import (
 	
 	"go.uber.org/zap"
 	
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/accounts"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/web"
 )
 
 // Handlers manages the set of bar ledger endpoints.
 type Handlers struct {
-	Log *zap.SugaredLogger
+	Log   *zap.SugaredLogger
+	State *state.State
 }
 
-// Test adds new user transaction to the mempool.
+// Genesis returns the genesis block information.
 func (h Handlers) Genesis(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	gen, err := genesis.Load()
-	if err != nil {
-		return err
-	}
+	gen := h.State.RetrieveGenesis()
 	
-	accts := accounts.New(gen)
+	return web.Respond(ctx, w, gen, http.StatusOK)
+}
+
+// Acounts returns the current balances for all users.
+func (h Handlers) Accounts(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	blkAccounts := h.State.RetrieveAccounts()
 	
-	return web.Respond(ctx, w, accts.Copy(), http.StatusOK)
+	return web.Respond(ctx, w, blkAccounts, http.StatusOK)
 }

@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	
 	"github.com/adamwoolhether/blockchain/app/services/node/handlers"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/logger"
 )
 
@@ -38,7 +39,7 @@ func main() {
 }
 
 func run(log *zap.SugaredLogger) error {
-	// /////////////////////////////////////////////////////////////
+	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Configuration
 	cfg := struct {
 		conf.Version
@@ -77,7 +78,7 @@ func run(log *zap.SugaredLogger) error {
 		return fmt.Errorf("parsing config: %w", err)
 	}
 	
-	// /////////////////////////////////////////////////////////////
+	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// App Starting
 	var header = `
 	██████╗ ██╗      ██████╗  ██████╗██╗  ██╗ ██████╗██╗  ██╗ █████╗ ██╗███╗   ██╗
@@ -97,7 +98,18 @@ func run(log *zap.SugaredLogger) error {
 	}
 	log.Infow("startup", "config", out)
 	
-	// /////////////////////////////////////////////////////////////
+	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Blockchain Support
+	state, err := state.New(state.Config{
+		MinerAccount: cfg.Node.MinerName,
+		Host:         cfg.Web.PrivateHost,
+		DBPath:       cfg.Node.DBPath,
+	})
+	if err != nil {
+		return err
+	}
+	
+	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Service Start/Stop Support
 	
 	// Make a channel to listen for an interrupt or terminal signal
@@ -109,7 +121,7 @@ func run(log *zap.SugaredLogger) error {
 	// channel is used so goroutine can exit if the error isn't collected.
 	serverErrors := make(chan error, 1)
 	
-	// /////////////////////////////////////////////////////////////
+	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Start Public Service
 	log.Infow("startup", "status", "initializing V1 public API support")
 	
@@ -117,7 +129,7 @@ func run(log *zap.SugaredLogger) error {
 	publicMux := handlers.PublicMux(handlers.MuxConfig{
 		Shutdown: shutdown,
 		Log:      log,
-		// State: state,
+		State:    state,
 	})
 	
 	// Construct a server to service the requets against the Mux.
@@ -136,7 +148,7 @@ func run(log *zap.SugaredLogger) error {
 		serverErrors <- public.ListenAndServe()
 	}()
 	
-	// /////////////////////////////////////////////////////////////
+	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Shutdown
 	
 	// Block main waiting for shutdown.
