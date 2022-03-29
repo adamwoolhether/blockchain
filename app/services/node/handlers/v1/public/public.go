@@ -31,7 +31,7 @@ func (h Handlers) SubmitWalletTransaction(ctx context.Context, w http.ResponseWr
 	}
 	
 	h.Log.Infow("add user tran", "traceid", v.TraceID, "nonce", userTx.Nonce, "from", userTx.From, "to", userTx.To, "value", userTx.Value, "tip", userTx.Tip)
-	// h.State.SubmitWalletTransaction(userTx)
+	h.State.SubmitWalletTransaction(userTx)
 	
 	resp := struct {
 		Status string `json:"status"`
@@ -40,6 +40,13 @@ func (h Handlers) SubmitWalletTransaction(ctx context.Context, w http.ResponseWr
 	}
 	
 	return web.Respond(ctx, w, resp, http.StatusOK)
+}
+
+// Mempool returns the set of uncommited transactions.
+func (h Handlers) Mempool(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	mpool := h.State.RetrieveMempool()
+	
+	return web.Respond(ctx, w, mpool, http.StatusOK)
 }
 
 // Genesis returns the genesis block information.

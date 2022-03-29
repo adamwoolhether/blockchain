@@ -3,6 +3,8 @@ package state
 import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/accounts"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
 // Config represents the configuration requires
@@ -20,6 +22,7 @@ type State struct {
 	dbPath       string
 	
 	genesis  genesis.Genesis
+	mempool  *mempool.Mempool
 	accounts *accounts.Accounts
 }
 
@@ -36,6 +39,12 @@ func New(cfg Config) (*State, error) {
 	// who transact on the blockchain.
 	accts := accounts.New(gen)
 	
+	// Construct a mempool with the specified sort strategy.
+	mpool, err := mempool.New()
+	if err != nil {
+		return nil, err
+	}
+	
 	// Create the state to provide suuport for managing the blockchain.
 	state := State{
 		minerAccount: cfg.MinerAccount,
@@ -43,6 +52,7 @@ func New(cfg Config) (*State, error) {
 		dbPath:       cfg.DBPath,
 		
 		genesis:  gen,
+		mempool:  mpool,
 		accounts: accts,
 	}
 	
@@ -50,6 +60,23 @@ func New(cfg Config) (*State, error) {
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// SubmitWalletTransaction accepts a transaction from a wallet for inclusion.
+func (s *State) SubmitWalletTransaction(tx storage.UserTx) error {
+	_, err := s.mempool.Upsert(tx)
+	if err != nil {
+		return err
+	}
+	
+	return nil
+}
+
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// RetrieveMempool retusn a copy of the mempool.
+func (s *State) RetrieveMempool() []storage.UserTx {
+	return s.mempool.Copy()
+}
 
 // RetrieveGenesis returns a copy of the genesis information.
 func (s *State) RetrieveGenesis() genesis.Genesis {

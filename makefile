@@ -1,6 +1,8 @@
 SHELL := $(shell echo ${SHELL})
 
 # curl -il -X GET http://localhost:8080/v1/genesis
+# curl -il -X GET http://localhost:8080/v1/accounts/list
+# curl -il -X GET http://localhost:8080/v1/tx/uncommitted/list
 # curl -il -X POST http://localhost:8080/v1/tx/submit -d '{"nonce": 1, "from": "adam", "to": "nikki", "value": 300, "tip": 30}'
 
 # ######################################################################################################################
