@@ -6,6 +6,7 @@ import (
 	
 	"go.uber.org/zap"
 	
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/accounts"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/web"
 )
@@ -22,5 +23,7 @@ func (h Handlers) Genesis(ctx context.Context, w http.ResponseWriter, r *http.Re
 		return err
 	}
 	
-	return web.Respond(ctx, w, gen, http.StatusOK)
+	accts := accounts.New(gen)
+	
+	return web.Respond(ctx, w, accts.Copy(), http.StatusOK)
 }
