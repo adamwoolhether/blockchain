@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	
 	"github.com/ethereum/go-ethereum/crypto"
@@ -54,6 +55,45 @@ func Sign(value any, privateKey *ecdsa.PrivateKey) (v, r, s *big.Int, err error)
 	v, r, s = toSignatureValues(sig)
 	
 	return v, r, s, nil
+}
+
+// VerifySignature verifies the signature conforms to our standards and
+// is associated with the data claimed to be signed.
+func VerifySignature(value any, v, r, s *big.Int) error {
+	
+	// Check the recovery is is either 0 or 1.
+	uintV := v.Uint64() - ardanID
+	if uintV != 0 && uintV != 1 {
+		return errors.New("invalid recovery id")
+	}
+	
+	// Check the signature values are valid.
+	if !crypto.ValidateSignatureValues(byte(uintV), r, s, false) {
+		return errors.New("invalid signature values")
+	}
+	
+	// Prepare the transaction for recovery and validation.
+	tx, err := stamp(value)
+	if err != nil {
+		return err
+	}
+	
+	// Convert the [R|S|V] format into the original 65 bytes.
+	sig := toSignatureBytes(v, r, s)
+	
+	// Capture the uncompressed public key assiciated with this signature.
+	sigPublicKey, err := crypto.Ecrecover(tx, sig)
+	if err != nil {
+		return fmt.Errorf("ecrecover, %w", err)
+	}
+	
+	// Check that the given public key created the signature over the data.
+	rs := sig[:crypto.RecoveryIDOffset]
+	if !crypto.VerifySignature(sigPublicKey, tx, rs) {
+		return errors.New("invalid signature")
+	}
+	
+	return nil
 }
 
 // FromAddress extracts the address for the account that signed the transaction.
