@@ -3,7 +3,10 @@ SHELL := $(shell echo ${SHELL})
 # curl -il -X GET http://localhost:8080/v1/genesis
 # curl -il -X GET http://localhost:8080/v1/accounts/list
 # curl -il -X GET http://localhost:8080/v1/tx/uncommitted/list
-# curl -il -X POST http://localhost:8080/v1/tx/submit -d '{"nonce": 1, "from": "adam", "to": "nikki", "value": 300, "tip": 30}'
+# curl -il -X POST http://localhost:8080/v1/tx/submit -d '{"nonce": 1, "from": "adam", "to": "nikki", "value": 300, "tip": 10}'
+# curl -il -X POST http://localhost:8080/v1/tx/submit -d '{"nonce": 2, "from": "adam", "to": "mantou", "value": 200, "tip": 20}'
+# curl -il -X POST http://localhost:8080/v1/tx/submit -d '{"nonce": 3, "from": "adam", "to": "jon", "value": 150, "tip": 30}'
+# curl -il -X POST http://localhost:8080/v1/tx/submit -d '{"nonce": 4, "from": "adam", "to": "joanna", "value": 400, "tip": 40}'
 
 # ######################################################################################################################
 # Local support
@@ -14,6 +17,9 @@ up2:
 
 down:
 	kill -INT $(shell ps | grep "main -race" | grep -v grep | sed -n 1,1p | cut -c1-5)
+
+clear-db:
+	cat /dev/null > zblock/blocks.db
 
 # ######################################################################################################################
 # Modules support

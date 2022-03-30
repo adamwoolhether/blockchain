@@ -120,7 +120,12 @@ func (s *State) MineNextBlock() error {
 	
 	s.evHandler("worker: MineNextBlock: MINING: remove tx from mempool")
 	
+	s.accounts.ApplyMiningReward(s.minerAccount)
+	
 	for _, tx := range txs {
+		s.evHandler("worker: MineNextBlock: MINING: UPDATE ACCOUNTS: %s:%d", tx.From, tx.Nonce)
+		s.accounts.ApplyTx(s.minerAccount, tx)
+		
 		s.evHandler("worker: MineNextBlock: MINING: REMOVE: %s:%d", tx.From, tx.Nonce)
 		if err := s.mempool.Delete(tx); err != nil {
 			return err

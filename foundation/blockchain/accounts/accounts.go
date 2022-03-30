@@ -2,9 +2,11 @@
 package accounts
 
 import (
+	"fmt"
 	"sync"
 	
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
 // Info represents information stored in an individual account.
@@ -44,4 +46,50 @@ func (act *Accounts) Copy() map[string]Info {
 	}
 	
 	return accounts
+}
+
+// ApplyMiningReward gives the specified miner account the mining reward.
+func (act *Accounts) ApplyMiningReward(minerAccount string) {
+	act.mu.Lock()
+	defer act.mu.Unlock()
+	
+	info := act.info[minerAccount]
+	info.Balance += act.genesis.MiningReward
+	
+	act.info[minerAccount] = info
+}
+
+// ApplyTx performs the business logic for applying
+// a transaction to the accounts information.
+func (act *Accounts) ApplyTx(minerAccount string, tx storage.UserTx) error {
+	act.mu.Lock()
+	defer act.mu.Unlock()
+	
+	from := tx.From
+	
+	if from == tx.To {
+		return fmt.Errorf("invalid transaction, sending money to yourself, from %s to %s", from, tx.To)
+	}
+	
+	fromInfo := act.info[from]
+	
+	if tx.Value > act.info[from].Balance {
+		return fmt.Errorf("%s has an insufficient balance", from)
+	}
+	
+	toInfo := act.info[tx.To]
+	minerInfo := act.info[minerAccount]
+	
+	fromInfo.Balance -= tx.Value
+	toInfo.Balance += tx.Value
+	
+	fee := /*tx.Gas*/ +tx.Tip
+	minerInfo.Balance += fee
+	fromInfo.Balance -= fee
+	
+	act.info[from] = fromInfo
+	act.info[tx.To] = toInfo
+	act.info[minerAccount] = minerInfo
+	
+	return nil
 }
