@@ -1,0 +1,1 @@
+{"Hash":"my hash","Block":{"header":{"parent_hash":"","miner_account":"miner1","difficulty":6,"number":0,"total_tip":0,"total_gas":0,"time_stamp":1648605683,"nonce":0},"transactions":[{"nonce":1,"from":"adam","to":"nikki","value":300,"tip":10,"data":null},{"nonce":2,"from":"adam","to":"mantou","value":200,"tip":20,"data":null}]}}

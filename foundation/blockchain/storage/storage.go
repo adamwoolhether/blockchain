@@ -3,6 +3,7 @@
 package storage
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
 	"sync"
@@ -56,4 +57,40 @@ func (str *Storage) Write(block BlockFS) error {
 	}
 	
 	return nil
+}
+
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ReadAllBlocks loads all existing blocks from starts into memory.
+// In a real world situation this would require a lot of memory.
+func (str *Storage) ReadAllBlocks() ([]Block, error) {
+	dbFile, err := os.Open(str.dbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer dbFile.Close()
+	
+	var blockNum int
+	var blocks []Block
+	scanner := bufio.NewScanner(dbFile)
+	for scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return nil, err
+		}
+		
+		var blockFS BlockFS
+		if err := json.Unmarshal(scanner.Bytes(), &blockFS); err != nil {
+			return nil, err
+		}
+		
+		// CHECK NOTHING BAD HAPPENED
+		// if blockFS.Block.Hash() != blockFS.Hash {
+		// 	return nil, fmt.Errorf("block %d has ben changed", blockNum)
+		// }
+		
+		blocks = append(blocks, blockFS.Block)
+		blockNum++
+	}
+	
+	return blocks, nil
 }
