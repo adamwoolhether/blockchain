@@ -1,6 +1,10 @@
 package storage
 
-import "time"
+import (
+	"time"
+	
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/signature"
+)
 
 // BlockHeader represents common information required for each block.
 type BlockHeader struct {
@@ -26,10 +30,20 @@ func NewBlock(minerAccount string, difficulty, txPerBlock int, txs []UserTx) Blo
 		Header: BlockHeader{
 			MinerAccount: minerAccount,
 			Difficulty:   difficulty,
+			Number:       1, // TEMP
 			TimeStamp:    uint64(time.Now().UTC().Unix()),
 		},
 		Transactions: txs,
 	}
+}
+
+// Hash returns the unique hash for the Block.
+func (b Block) Hash() string {
+	if b.Header.Number == 0 {
+		return signature.ZeroHash
+	}
+	
+	return signature.Hash(b)
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

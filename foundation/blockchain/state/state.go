@@ -3,6 +3,8 @@
 package state
 
 import (
+	"context"
+	
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/accounts"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool"
@@ -127,9 +129,11 @@ func (s *State) MineNextBlock() error {
 	txs := s.mempool.PickBest(2)
 	nb := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, txs)
 	
-	blockFS := storage.BlockFS{
-		Hash:  "my hash",
-		Block: nb,
+	s.evHandler("worker: MineNextBlock: MINING: find hash")
+	
+	blockFS, _, err := performPOW(context.TODO(), s.genesis.Difficulty, nb, s.evHandler)
+	if err != nil {
+		return err
 	}
 	
 	s.evHandler("worker: MineNextBlock: MINING: write block to disk")
@@ -152,8 +156,6 @@ func (s *State) MineNextBlock() error {
 			return err
 		}
 	}
-	
-	// ---------- POW
 	
 	return nil
 }

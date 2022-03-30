@@ -1,5 +1,7 @@
 package storage
 
+import "fmt"
+
 // UserTx is the transactional data submitted by a user.
 type UserTx struct {
 	Nonce uint   `json:"nonce"` // *Unique* id for the transaction supplied by the user.
@@ -22,4 +24,9 @@ func NewUserTx(nonce uint, from, to string, value, tip uint, data []byte) (UserT
 	}
 	
 	return userTx, nil
+}
+
+// String implements the fmt.Stringer interface for logging.
+func (tx UserTx) String() string {
+	return fmt.Sprintf("%s:%d", tx.From, tx.Nonce)
 }
