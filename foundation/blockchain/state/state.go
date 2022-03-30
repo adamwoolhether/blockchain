@@ -32,10 +32,11 @@ type State struct {
 	
 	evHandler EventHandler
 	
-	genesis  genesis.Genesis
-	storage  *storage.Storage
-	mempool  *mempool.Mempool
-	accounts *accounts.Accounts
+	genesis     genesis.Genesis
+	storage     *storage.Storage
+	mempool     *mempool.Mempool
+	accounts    *accounts.Accounts
+	latestBlock storage.Block
 }
 
 // New constructs a new blockchain for data management.
@@ -58,6 +59,12 @@ func New(cfg Config) (*State, error) {
 	blocks, err := strg.ReadAllBlocks()
 	if err != nil {
 		return nil, err
+	}
+	
+	// Keep the latest blocks from the blockchain.
+	var latestBlock storage.Block
+	if len(blocks) > 0 {
+		latestBlock = blocks[len(blocks)-1]
 	}
 	
 	// Create a new accounts value to manage accounts
@@ -97,10 +104,11 @@ func New(cfg Config) (*State, error) {
 		dbPath:       cfg.DBPath,
 		evHandler:    ev,
 		
-		genesis:  gen,
-		storage:  strg,
-		mempool:  mpool,
-		accounts: accts,
+		genesis:     gen,
+		storage:     strg,
+		mempool:     mpool,
+		accounts:    accts,
+		latestBlock: latestBlock,
 	}
 	
 	return &state, nil
@@ -127,11 +135,11 @@ func (s *State) SubmitWalletTransaction(tx storage.UserTx) error {
 // MineNextBlock returns a copy of the mempool.
 func (s *State) MineNextBlock() error {
 	txs := s.mempool.PickBest(2)
-	nb := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, txs)
+	block := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, s.latestBlock, txs)
 	
 	s.evHandler("worker: MineNextBlock: MINING: find hash")
 	
-	blockFS, _, err := performPOW(context.TODO(), s.genesis.Difficulty, nb, s.evHandler)
+	blockFS, _, err := performPOW(context.TODO(), s.genesis.Difficulty, block, s.evHandler)
 	if err != nil {
 		return err
 	}
@@ -156,6 +164,9 @@ func (s *State) MineNextBlock() error {
 			return err
 		}
 	}
+	
+	// Save this is the latest block.
+	s.latestBlock = blockFS.Block
 	
 	return nil
 }

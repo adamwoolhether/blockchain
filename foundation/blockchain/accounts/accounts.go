@@ -72,8 +72,9 @@ func (act *Accounts) ApplyTx(minerAccount string, tx storage.UserTx) error {
 	}
 	
 	fromInfo := act.info[from]
+	fee := /*tx.Gas*/ +tx.Tip
 	
-	if tx.Value > act.info[from].Balance {
+	if tx.Value+fee > act.info[from].Balance {
 		return fmt.Errorf("%s has an insufficient balance", from)
 	}
 	
@@ -83,7 +84,6 @@ func (act *Accounts) ApplyTx(minerAccount string, tx storage.UserTx) error {
 	fromInfo.Balance -= tx.Value
 	toInfo.Balance += tx.Value
 	
-	fee := /*tx.Gas*/ +tx.Tip
 	minerInfo.Balance += fee
 	fromInfo.Balance -= fee
 	
