@@ -11,7 +11,7 @@ type BlockHeader struct {
 	TotalTip     uint   `json:"total_tip"`     // Total tip paid by all senders as an incentive.
 	TotalGas     uint   `json:"total_gas"`     // Total gas fee to recover the computation costs paid by the sender.
 	TimeStamp    uint64 `json:"time_stamp"`    // Time the block was mined.
-	Nonce        uint64 `json:"none"`          // Value identified to solve the hash solution.
+	Nonce        uint64 `json:"nonce"`         // Value identified to solve the hash solution.
 }
 
 // Block struct represents a grup of transactions batched together.
