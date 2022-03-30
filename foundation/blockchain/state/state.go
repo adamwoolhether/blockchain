@@ -18,7 +18,7 @@ type EventHandler func(v string, args ...any)
 // Config represents the configuration requires
 // to start the blockchain node.
 type Config struct {
-	MinerAccount string
+	MinerAccount storage.Account
 	Host         string
 	DBPath       string
 	EvHandler    EventHandler
@@ -26,7 +26,7 @@ type Config struct {
 
 // State manages the blockchain database.
 type State struct {
-	minerAccount string
+	minerAccount storage.Account
 	host         string
 	dbPath       string
 	
@@ -117,7 +117,7 @@ func New(cfg Config) (*State, error) {
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SubmitWalletTransaction accepts a transaction from a wallet for inclusion.
-func (s *State) SubmitWalletTransaction(tx storage.UserTx) error {
+func (s *State) SubmitWalletTransaction(tx storage.SignedTx) error {
 	n, err := s.mempool.Upsert(tx)
 	if err != nil {
 		return err
@@ -156,10 +156,12 @@ func (s *State) MineNextBlock() error {
 	s.accounts.ApplyMiningReward(s.minerAccount)
 	
 	for _, tx := range txs {
-		s.evHandler("worker: MineNextBlock: MINING: UPDATE ACCOUNTS: %s:%d", tx.From, tx.Nonce)
+		from, _ := tx.FromAccount() // TODO
+		
+		s.evHandler("worker: MineNextBlock: MINING: UPDATE ACCOUNTS: %s:%d", from, tx.Nonce)
 		s.accounts.ApplyTx(s.minerAccount, tx)
 		
-		s.evHandler("worker: MineNextBlock: MINING: REMOVE: %s:%d", tx.From, tx.Nonce)
+		s.evHandler("worker: MineNextBlock: MINING: REMOVE: %s:%d", from, tx.Nonce)
 		if err := s.mempool.Delete(tx); err != nil {
 			return err
 		}
@@ -174,7 +176,7 @@ func (s *State) MineNextBlock() error {
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // RetrieveMempool retusn a copy of the mempool.
-func (s *State) RetrieveMempool() []storage.UserTx {
+func (s *State) RetrieveMempool() []storage.SignedTx {
 	return s.mempool.Copy()
 }
 
@@ -184,6 +186,6 @@ func (s *State) RetrieveGenesis() genesis.Genesis {
 }
 
 // RetrieveAccounts returns a copy of the set of account information.
-func (s *State) RetrieveAccounts() map[string]accounts.Info {
+func (s *State) RetrieveAccounts() map[storage.Account]accounts.Info {
 	return s.accounts.Copy()
 }
