@@ -24,6 +24,7 @@ type State struct {
 	dbPath       string
 	
 	genesis  genesis.Genesis
+	storage  *storage.Storage
 	mempool  *mempool.Mempool
 	accounts *accounts.Accounts
 }
@@ -33,6 +34,12 @@ func New(cfg Config) (*State, error) {
 	// Load the genesis file to get starting
 	// balances for founders of the blockchain.
 	gen, err := genesis.Load()
+	if err != nil {
+		return nil, err
+	}
+	
+	// Access the storage for the blockchain.
+	strg, err := storage.New(cfg.DBPath)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +61,7 @@ func New(cfg Config) (*State, error) {
 		dbPath:       cfg.DBPath,
 		
 		genesis:  gen,
+		storage:  strg,
 		mempool:  mpool,
 		accounts: accts,
 	}
@@ -70,7 +78,7 @@ func (s *State) SubmitWalletTransaction(tx storage.UserTx) error {
 		return err
 	}
 	
-	if n >= s.genesis.TransPerBlock {
+	if n >= s.genesis.TxsPerBlock {
 		if err := s.MineNextBlock(); err != nil {
 			return err
 		}
@@ -81,10 +89,25 @@ func (s *State) SubmitWalletTransaction(tx storage.UserTx) error {
 
 // MineNextBlock returns a copy of the mempool.
 func (s *State) MineNextBlock() error {
-	// txs := s.mempool.PickBest(2)
+	txs := s.mempool.PickBest(2)
+	nb := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, txs)
+	blockFS := storage.BlockFS{
+		Hash:  "my hash",
+		Block: nb,
+	}
 	
-	// CREATE A BLOCK
-	// POW
+	// Write new block to the chain on disk.
+	if err := s.storage.Write(blockFS); err != nil {
+		return err
+	}
+	
+	for _, tx := range txs {
+		if err := s.mempool.Delete(tx); err != nil {
+			return err
+		}
+	}
+	
+	// ---------- POW
 	// WRITE TO DISK
 	// UPDATE ACCOUNTS
 	

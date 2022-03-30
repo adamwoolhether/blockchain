@@ -32,7 +32,9 @@ func (h Handlers) SubmitWalletTransaction(ctx context.Context, w http.ResponseWr
 	}
 	
 	h.Log.Infow("add user tran", "traceid", v.TraceID, "nonce", userTx.Nonce, "from", userTx.From, "to", userTx.To, "value", userTx.Value, "tip", userTx.Tip)
-	h.State.SubmitWalletTransaction(userTx)
+	if err := h.State.SubmitWalletTransaction(userTx); err != nil {
+		return err
+	}
 	
 	resp := struct {
 		Status string `json:"status"`
