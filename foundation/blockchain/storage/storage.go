@@ -5,6 +5,7 @@ package storage
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"sync"
 )
@@ -83,10 +84,12 @@ func (str *Storage) ReadAllBlocks() ([]Block, error) {
 			return nil, err
 		}
 		
-		// CHECK NOTHING BAD HAPPENED
-		// if blockFS.Block.Hash() != blockFS.Hash {
-		// 	return nil, fmt.Errorf("block %d has ben changed", blockNum)
-		// }
+		// Check for tampering. This check isn not production ready, far from it,
+		// but gives an idea of how to chcek for tampering. Merkle trees should
+		// ideally be implemented.
+		if blockFS.Block.Hash() != blockFS.Hash {
+			return nil, fmt.Errorf("block %d has ben changed", blockNum)
+		}
 		
 		blocks = append(blocks, blockFS.Block)
 		blockNum++
