@@ -82,7 +82,7 @@ func (act *Accounts) ApplyMiningReward(minerAccount storage.Account) {
 
 // ApplyTx performs the business logic for applying
 // a transaction to the accounts information.
-func (act *Accounts) ApplyTx(minerAccount storage.Account, tx storage.SignedTx) error {
+func (act *Accounts) ApplyTx(minerAccount storage.Account, tx storage.BlockTx) error {
 	from, err := tx.FromAccount()
 	if err != nil {
 		return fmt.Errorf("invalid signature, %s", err)
@@ -96,7 +96,7 @@ func (act *Accounts) ApplyTx(minerAccount storage.Account, tx storage.SignedTx) 
 		}
 		
 		fromInfo := act.info[from]
-		fee := /*tx.Gas*/ +tx.Tip
+		fee := tx.Gas + tx.Tip
 		
 		if tx.Value+fee > act.info[from].Balance {
 			return fmt.Errorf("%s has an insufficient balance", from)

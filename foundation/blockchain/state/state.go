@@ -143,8 +143,12 @@ func (s *State) Shutdown() error {
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SubmitWalletTransaction accepts a transaction from a wallet for inclusion.
-func (s *State) SubmitWalletTransaction(tx storage.SignedTx) error {
-	// if err := s.validateTransaction();
+func (s *State) SubmitWalletTransaction(signedTx storage.SignedTx) error {
+	if err := s.validateTransaction(signedTx); err != nil {
+		return err
+	}
+	
+	tx := storage.NewBlockTx(signedTx, s.genesis.GasPrice)
 	
 	n, err := s.mempool.Upsert(tx)
 	if err != nil {
@@ -184,7 +188,7 @@ func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration,
 		}
 		
 		// Update the total gas and tip fees.
-		// block.Header.TotalGas += tx.Gas
+		block.Header.TotalGas += tx.Gas
 		block.Header.TotalTip += tx.Tip
 	}
 	
@@ -234,7 +238,7 @@ func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration,
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // RetrieveMempool retusn a copy of the mempool.
-func (s *State) RetrieveMempool() []storage.SignedTx {
+func (s *State) RetrieveMempool() []storage.BlockTx {
 	return s.mempool.Copy()
 }
 

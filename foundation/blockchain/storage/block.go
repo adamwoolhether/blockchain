@@ -21,11 +21,11 @@ type BlockHeader struct {
 // Block struct represents a grup of transactions batched together.
 type Block struct {
 	Header       BlockHeader `json:"header"`
-	Transactions []SignedTx  `json:"transactions"`
+	Transactions []BlockTx   `json:"transactions"`
 }
 
 // NewBlock constructs a new BlockFS for persisting data.
-func NewBlock(minerAccount Account, difficulty, txPerBlock int, parentBlock Block, txs []SignedTx) Block {
+func NewBlock(minerAccount Account, difficulty, txPerBlock int, parentBlock Block, txs []BlockTx) Block {
 	parentHash := signature.ZeroHash
 	if parentBlock.Header.Number > 0 {
 		parentHash = parentBlock.Hash()
