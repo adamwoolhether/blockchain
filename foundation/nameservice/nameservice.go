@@ -1,3 +1,5 @@
+// Package nameservice reads the zblock/accounts folder and creates a name
+// service lookup for the ardan accounts.
 package nameservice
 
 import (

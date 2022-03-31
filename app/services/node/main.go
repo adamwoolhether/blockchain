@@ -127,7 +127,7 @@ func run(log *zap.SugaredLogger) error {
 		log.Infow(s, "traceid", "00000000-0000-0000-0000-000000000000")
 	}
 	
-	state, err := state.New(state.Config{
+	st, err := state.New(state.Config{
 		MinerAccount: account,
 		Host:         cfg.Web.PrivateHost,
 		DBPath:       cfg.Node.DBPath,
@@ -136,6 +136,7 @@ func run(log *zap.SugaredLogger) error {
 	if err != nil {
 		return err
 	}
+	defer st.Shutdown()
 	
 	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Service Start/Stop Support
@@ -157,7 +158,7 @@ func run(log *zap.SugaredLogger) error {
 	publicMux := handlers.PublicMux(handlers.MuxConfig{
 		Shutdown: shutdown,
 		Log:      log,
-		State:    state,
+		State:    st,
 		NS:       ns,
 	})
 	

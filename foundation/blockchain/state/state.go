@@ -4,12 +4,18 @@ package state
 
 import (
 	"context"
+	"errors"
+	"time"
 	
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/accounts"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
+
+// ErrNotEnoughTransactions is returned when a block is requested
+// to be created and there aren't enough transactions.
+var ErrNotEnoughTransactions = errors.New("not enough transactions in mempool")
 
 // EventHandler defines a function that is called
 // when events occur in the processing of persisting blocks.
@@ -37,6 +43,8 @@ type State struct {
 	mempool     *mempool.Mempool
 	accounts    *accounts.Accounts
 	latestBlock storage.Block
+	
+	worker *worker
 }
 
 // New constructs a new blockchain for data management.
@@ -111,7 +119,23 @@ func New(cfg Config) (*State, error) {
 		latestBlock: latestBlock,
 	}
 	
+	// Run the worker which will assign itself to this state.
+	runWorker(&state, cfg.EvHandler)
+	
 	return &state, nil
+}
+
+// Shutdown cleanly brings the node down.
+func (s *State) Shutdown() error {
+	// Make sure the database fiel is properly closed.
+	defer func() {
+		s.storage.Close()
+	}()
+	
+	// Stop all blockchain writing activity.
+	s.worker.shutdown()
+	
+	return nil
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -126,56 +150,53 @@ func (s *State) SubmitWalletTransaction(tx storage.SignedTx) error {
 	}
 	
 	if n >= s.genesis.TxsPerBlock {
-		if err := s.MineNextBlock(); err != nil {
-			return err
-		}
+		s.worker.signalStartMining()
 	}
 	
 	return nil
 }
 
-// MineNextBlock returns a copy of the mempool.
-func (s *State) MineNextBlock() error {
+// MineNewBlock writes the published transaction for the mempool to disk.
+func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration, error) {
 	txs := s.mempool.PickBest(2)
 	block := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, s.latestBlock, txs)
 	
-	s.evHandler("worker: MineNextBlock: MINING: find hash")
+	s.evHandler("worker: MineNewBlock: MINING: find hash")
 	
-	blockFS, _, err := performPOW(context.TODO(), s.genesis.Difficulty, block, s.evHandler)
+	blockFS, _, err := performPOW(ctx, s.genesis.Difficulty, block, s.evHandler)
 	if err != nil {
-		return err
+		return storage.Block{}, 0, err
 	}
 	
-	s.evHandler("worker: MineNextBlock: MINING: write block to disk")
+	s.evHandler("worker: MineNewBlock: MINING: write block to disk")
 	
 	// Write new block to the chain on disk.
 	if err := s.storage.Write(blockFS); err != nil {
-		return err
+		return storage.Block{}, 0, err
 	}
 	
-	s.evHandler("worker: MineNextBlock: MINING: remove tx from mempool")
+	s.evHandler("worker: MineNewBlock: MINING: remove tx from mempool")
 	
 	s.accounts.ApplyMiningReward(s.minerAccount)
 	
 	for _, tx := range txs {
 		from, err := tx.FromAccount() // TODO
 		if err != nil {
-			return err
+			return storage.Block{}, 0, err
 		}
 		
-		s.evHandler("worker: MineNextBlock: MINING: UPDATE ACCOUNTS: %s:%d", from, tx.Nonce)
+		s.evHandler("worker: MineNewBlock: MINING: UPDATE ACCOUNTS: %s:%d", from, tx.Nonce)
 		s.accounts.ApplyTx(s.minerAccount, tx)
 		
-		s.evHandler("worker: MineNextBlock: MINING: REMOVE: %s:%d", from, tx.Nonce)
-		if err := s.mempool.Delete(tx); err != nil {
-			return err
-		}
+		s.evHandler("worker: MineNewBlock: MINING: REMOVE: %s:%d", from, tx.Nonce)
+		s.mempool.Delete(tx)
+		
 	}
 	
 	// Save this is the latest block.
 	s.latestBlock = blockFS.Block
 	
-	return nil
+	return blockFS.Block, 0, nil
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -197,6 +218,13 @@ func (s *State) RetrieveAccounts() map[storage.Account]accounts.Info {
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// QueryMempoolLength returns the current length of the mempool.
+func (s *State) QueryMempoolLength() int {
+	return s.mempool.Count()
+}
+
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // validateTransaction takes the signed transaction and validates
 // it has a proper signature and other aspects of the data.
 func (s *State) validateTransaction(signedTx storage.SignedTx) error {
@@ -206,3 +234,47 @@ func (s *State) validateTransaction(signedTx storage.SignedTx) error {
 	
 	return nil
 }
+
+// // MineNextBlock returns a copy of the mempool.
+// func (s *State) MineNextBlock() error {
+// 	txs := s.mempool.PickBest(2)
+// 	block := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, s.latestBlock, txs)
+//
+// 	s.evHandler("worker: MineNextBlock: MINING: find hash")
+//
+// 	blockFS, _, err := performPOW(context.TODO(), s.genesis.Difficulty, block, s.evHandler)
+// 	if err != nil {
+// 		return err
+// 	}
+//
+// 	s.evHandler("worker: MineNextBlock: MINING: write block to disk")
+//
+// 	// Write new block to the chain on disk.
+// 	if err := s.storage.Write(blockFS); err != nil {
+// 		return err
+// 	}
+//
+// 	s.evHandler("worker: MineNextBlock: MINING: remove tx from mempool")
+//
+// 	s.accounts.ApplyMiningReward(s.minerAccount)
+//
+// 	for _, tx := range txs {
+// 		from, err := tx.FromAccount() // TODO
+// 		if err != nil {
+// 			return err
+// 		}
+//
+// 		s.evHandler("worker: MineNextBlock: MINING: UPDATE ACCOUNTS: %s:%d", from, tx.Nonce)
+// 		s.accounts.ApplyTx(s.minerAccount, tx)
+//
+// 		s.evHandler("worker: MineNextBlock: MINING: REMOVE: %s:%d", from, tx.Nonce)
+// 		if err := s.mempool.Delete(tx); err != nil {
+// 			return err
+// 		}
+// 	}
+//
+// 	// Save this is the latest block.
+// 	s.latestBlock = blockFS.Block
+//
+// 	return nil
+// }
