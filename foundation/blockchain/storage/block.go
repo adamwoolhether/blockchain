@@ -31,12 +31,21 @@ func NewBlock(minerAccount Account, difficulty, txPerBlock int, parentBlock Bloc
 		parentHash = parentBlock.Hash()
 	}
 	
+	var totalTip uint
+	var totalGas uint
+	for _, tx := range txs {
+		totalTip += tx.Tip
+		totalGas += tx.Gas
+	}
+	
 	return Block{
 		Header: BlockHeader{
 			ParentHash:   parentHash,
 			MinerAccount: minerAccount,
 			Difficulty:   difficulty,
 			Number:       parentBlock.Header.Number + 1,
+			TotalTip:     totalTip,
+			TotalGas:     totalGas,
 			TimeStamp:    uint64(time.Now().UTC().Unix()),
 		},
 		Transactions: txs,

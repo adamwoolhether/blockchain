@@ -162,7 +162,10 @@ func (s *State) SubmitWalletTransaction(signedTx storage.SignedTx) error {
 	return nil
 }
 
-// MineNewBlock writes the published transaction for the mempool to disk.
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// MineNewBlock attempts to create a new block with a proper hash
+// that can become the the next block in the chain.
 func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration, error) {
 	s.evHandler("worker: MineNewBlock: MINING: check mempool count")
 	
@@ -173,27 +176,9 @@ func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration,
 	
 	s.evHandler("worker: MineNewBlock: MINING: create new block: pick %d", s.genesis.TxsPerBlock)
 	
-	txs := s.mempool.PickBest(2)
+	// Create a new block which ones it's own copy of the transactions.
+	txs := s.mempool.PickBest(s.genesis.TxsPerBlock)
 	block := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, s.RetrieveLatestBlock(), txs)
-	
-	s.evHandler("worker: MineNewBlock: MINING: copy accounts and update")
-	
-	// Process the transactions against a copy of the accounts.
-	accts := s.accounts.Clone()
-	for _, tx := range block.Transactions {
-		// Apply the balance changes based on this transaction.
-		if err := accts.ApplyTx(s.minerAccount, tx); err != nil {
-			s.evHandler("worker: MineNewBlock: MINING: WARNING: %s", err)
-			continue
-		}
-		
-		// Update the total gas and tip fees.
-		block.Header.TotalGas += tx.Gas
-		block.Header.TotalTip += tx.Tip
-	}
-	
-	// Apply the mining reward for this block.
-	accts.ApplyMiningReward(s.minerAccount)
 	
 	s.evHandler("worker: MineNewBlock: MINING: perform POW")
 	
@@ -209,30 +194,51 @@ func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration,
 		return storage.Block{}, duration, ctx.Err()
 	}
 	
-	// Ensure the following state changes are done atomically.
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	{
-		s.evHandler("worker: MineNewBlock: MINING: write block to disk")
-		
-		// Write new block to the chain on disk.
-		if err := s.storage.Write(blockFS); err != nil {
-			return storage.Block{}, duration, err
-		}
-		
-		s.evHandler("worker: MineNewBlock: MINING: apply new account updates")
-		
-		s.accounts.Replace(accts)
-		s.latestBlock = blockFS.Block
-		
-		// Remove the transactions from this block.
-		for _, tx := range block.Transactions {
-			s.evHandler("worker: MineNewBlock: MINING: remove tx from mempool: tx[%s]", tx)
-			s.mempool.Delete(tx)
-		}
+	s.evHandler("worker: MineNewBlock: MINING: update local state")
+	
+	if err := s.updateLocalState(blockFS); err != nil {
+		return storage.Block{}, duration, err
 	}
 	
 	return blockFS.Block, duration, nil
+}
+
+// updateLocalState takes the blockFS and updates the current state of
+// the chain, including adding the block to disk.
+func (s *State) updateLocalState(blockFS storage.BlockFS) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	s.evHandler("worker: updateLocalState: write block to disk")
+	
+	// Write new block to the chain on disk.
+	if err := s.storage.Write(blockFS); err != nil {
+		return err
+	}
+	s.latestBlock = blockFS.Block
+	
+	s.evHandler("worker: updateLocalState: update accounts and remove from mempool")
+	
+	// Process the transactions and update the accounts.
+	for _, tx := range blockFS.Block.Transactions {
+		s.evHandler("worker: updateLocalState: tx[%s] update and remove", tx)
+		
+		// Apply the balance changes based on this transaction.
+		if err := s.accounts.ApplyTx(blockFS.Block.Header.MinerAccount, tx); err != nil {
+			s.evHandler("worker: updateLocalState: WARNING : %s", err)
+			continue
+		}
+		
+		// Remove this tx from the mempool.
+		s.mempool.Delete(tx)
+	}
+	
+	s.evHandler("worker: updateLocalState: apply mining reward")
+	
+	// Apply the mining reward for this block.
+	s.accounts.ApplyMiningReward(blockFS.Block.Header.MinerAccount)
+	
+	return nil
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
