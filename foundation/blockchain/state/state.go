@@ -5,6 +5,7 @@ package state
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 	
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/accounts"
@@ -43,6 +44,7 @@ type State struct {
 	mempool     *mempool.Mempool
 	accounts    *accounts.Accounts
 	latestBlock storage.Block
+	mu          sync.Mutex
 	
 	worker *worker
 }
@@ -158,45 +160,75 @@ func (s *State) SubmitWalletTransaction(tx storage.SignedTx) error {
 
 // MineNewBlock writes the published transaction for the mempool to disk.
 func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration, error) {
+	s.evHandler("worker: MineNewBlock: MINING: check mempool count")
+	
+	// Are there enough transactions in the pool.
+	if s.mempool.Count() < s.genesis.TxsPerBlock {
+		return storage.Block{}, 0, ErrNotEnoughTransactions
+	}
+	
+	s.evHandler("worker: MineNewBlock: MINING: create new block: pick %d", s.genesis.TxsPerBlock)
+	
 	txs := s.mempool.PickBest(2)
-	block := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, s.latestBlock, txs)
+	block := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, s.RetrieveLatestBlock(), txs)
 	
-	s.evHandler("worker: MineNewBlock: MINING: find hash")
+	s.evHandler("worker: MineNewBlock: MINING: copy accounts and update")
 	
-	blockFS, _, err := performPOW(ctx, s.genesis.Difficulty, block, s.evHandler)
-	if err != nil {
-		return storage.Block{}, 0, err
-	}
-	
-	s.evHandler("worker: MineNewBlock: MINING: write block to disk")
-	
-	// Write new block to the chain on disk.
-	if err := s.storage.Write(blockFS); err != nil {
-		return storage.Block{}, 0, err
-	}
-	
-	s.evHandler("worker: MineNewBlock: MINING: remove tx from mempool")
-	
-	s.accounts.ApplyMiningReward(s.minerAccount)
-	
-	for _, tx := range txs {
-		from, err := tx.FromAccount() // TODO
-		if err != nil {
-			return storage.Block{}, 0, err
+	// Process the transactions against a copy of the accounts.
+	accts := s.accounts.Clone()
+	for _, tx := range block.Transactions {
+		// Apply the balance changes based on this transaction.
+		if err := accts.ApplyTx(s.minerAccount, tx); err != nil {
+			s.evHandler("worker: MineNewBlock: MINING: WARNING: %s", err)
+			continue
 		}
 		
-		s.evHandler("worker: MineNewBlock: MINING: UPDATE ACCOUNTS: %s:%d", from, tx.Nonce)
-		s.accounts.ApplyTx(s.minerAccount, tx)
-		
-		s.evHandler("worker: MineNewBlock: MINING: REMOVE: %s:%d", from, tx.Nonce)
-		s.mempool.Delete(tx)
-		
+		// Update the total gas and tip fees.
+		// block.Header.TotalGas += tx.Gas
+		block.Header.TotalTip += tx.Tip
 	}
 	
-	// Save this is the latest block.
-	s.latestBlock = blockFS.Block
+	// Apply the mining reward for this block.
+	accts.ApplyMiningReward(s.minerAccount)
 	
-	return blockFS.Block, 0, nil
+	s.evHandler("worker: MineNewBlock: MINING: perform POW")
+	
+	// Attempt to create a new BlockFS by solving
+	// the POW puzzle. This can be cancelled.
+	blockFS, duration, err := performPOW(ctx, s.genesis.Difficulty, block, s.evHandler)
+	if err != nil {
+		return storage.Block{}, duration, err
+	}
+	
+	// Check one more time cancellation hasn't occurred.
+	if ctx.Err() != nil {
+		return storage.Block{}, duration, ctx.Err()
+	}
+	
+	// Ensure the following state changes are done atomically.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	{
+		s.evHandler("worker: MineNewBlock: MINING: write block to disk")
+		
+		// Write new block to the chain on disk.
+		if err := s.storage.Write(blockFS); err != nil {
+			return storage.Block{}, duration, err
+		}
+		
+		s.evHandler("worker: MineNewBlock: MINING: apply new account updates")
+		
+		s.accounts.Replace(accts)
+		s.latestBlock = blockFS.Block
+		
+		// Remove the transactions from this block.
+		for _, tx := range block.Transactions {
+			s.evHandler("worker: MineNewBlock: MINING: remove tx from mempool: tx[%s]", tx)
+			s.mempool.Delete(tx)
+		}
+	}
+	
+	return blockFS.Block, duration, nil
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -214,6 +246,14 @@ func (s *State) RetrieveGenesis() genesis.Genesis {
 // RetrieveAccounts returns a copy of the set of account information.
 func (s *State) RetrieveAccounts() map[storage.Account]accounts.Info {
 	return s.accounts.Copy()
+}
+
+// RetrieveLatestBlock returns a copy of the current latest block.
+func (s *State) RetrieveLatestBlock() storage.Block {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	return s.latestBlock
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
