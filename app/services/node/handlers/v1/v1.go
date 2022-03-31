@@ -9,6 +9,7 @@ import (
 	
 	"github.com/adamwoolhether/blockchain/app/services/node/handlers/v1/public"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
+	"github.com/adamwoolhether/blockchain/foundation/nameservice"
 	"github.com/adamwoolhether/blockchain/foundation/web"
 )
 
@@ -18,6 +19,7 @@ const version = "v1"
 type Config struct {
 	Log   *zap.SugaredLogger
 	State *state.State
+	NS    *nameservice.NameService
 }
 
 // PublicRoutes binds all version 1 public routes.
@@ -25,6 +27,7 @@ func PublicRoutes(app *web.App, cfg Config) {
 	pbl := public.Handlers{
 		Log:   cfg.Log,
 		State: cfg.State,
+		NS:    cfg.NS,
 	}
 	
 	app.Handle(http.MethodGet, version, "/tx/uncommitted/list", pbl.Mempool)

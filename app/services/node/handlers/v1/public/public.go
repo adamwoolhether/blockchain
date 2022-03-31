@@ -10,6 +10,7 @@ import (
 	
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
+	"github.com/adamwoolhether/blockchain/foundation/nameservice"
 	"github.com/adamwoolhether/blockchain/foundation/web"
 )
 
@@ -17,6 +18,7 @@ import (
 type Handlers struct {
 	Log   *zap.SugaredLogger
 	State *state.State
+	NS    *nameservice.NameService
 }
 
 // SubmitWalletTransaction adds a new user transaction to the mempool.
@@ -68,5 +70,20 @@ func (h Handlers) Genesis(ctx context.Context, w http.ResponseWriter, r *http.Re
 func (h Handlers) Accounts(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	blkAccounts := h.State.RetrieveAccounts()
 	
-	return web.Respond(ctx, w, blkAccounts, http.StatusOK)
+	accts := make([]info, 0, len(blkAccounts))
+	for account, blkInfo := range blkAccounts {
+		acct := info{
+			Account: account,
+			Name:    h.NS.Lookup(account),
+			Balance: blkInfo.Balance,
+		}
+		accts = append(accts, acct)
+	}
+	
+	ai := acctInfo{
+		Uncommitted: len(h.State.RetrieveMempool()),
+		Accounts:    accts,
+	}
+	
+	return web.Respond(ctx, w, ai, http.StatusOK)
 }

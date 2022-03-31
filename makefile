@@ -9,16 +9,14 @@ SHELL := $(shell echo ${SHELL})
 # Miner1: 0xFef311483Cc040e1A89fb9bb469eeB8A70935EF8
 # Miner2: 0xb8Ee4c7ac4ca3269fEc242780D7D960bd6272a61
 
-# go run app/wallet/cli/main.go -t "0x6Fe6CF3c8fF57c58d24BfC869668F48BCbDb3BD9" -n 1 -v 100 -p 15
-# go run app/wallet/cli/main.go -t "0xbEE6ACE826eC3DE1B6349888B9151B92522F7F76" -n 2 -v 200 -p 15
-
 # curl -il -X GET http://localhost:8080/v1/genesis
 # curl -il -X GET http://localhost:8080/v1/accounts/list
 # curl -il -X GET http://localhost:8080/v1/tx/uncommitted/list
-# curl -il -X POST http://localhost:8080/v1/tx/submit -d '{"nonce": 1, "from": "adam", "to": "nikki", "value": 300, "tip": 10}'
-# curl -il -X POST http://localhost:8080/v1/tx/submit -d '{"nonce": 2, "from": "adam", "to": "mantou", "value": 200, "tip": 20}'
-# curl -il -X POST http://localhost:8080/v1/tx/submit -d '{"nonce": 3, "from": "adam", "to": "jon", "value": 150, "tip": 30}'
-# curl -il -X POST http://localhost:8080/v1/tx/submit -d '{"nonce": 4, "from": "adam", "to": "joanna", "value": 400, "tip": 40}'
+
+# go run app/wallet/cli/main.go -t "0x6Fe6CF3c8fF57c58d24BfC869668F48BCbDb3BD9" -n 1 -v 100 -p 15
+# go run app/wallet/cli/main.go -t "0xbEE6ACE826eC3DE1B6349888B9151B92522F7F76" -n 2 -v 200 -p 15
+# go run app/wallet/cli/main.go -t "0xa988b1866EaBF72B4c53b592c97aAD8e4b9bDCC0" -n 3 -v 450 -p 15
+# go run app/wallet/cli/main.go -t "0xbEE6ACE826eC3DE1B6349888B9151B92522F7F76" -n 4 -v 230 -p 15
 
 # ######################################################################################################################
 # Local support

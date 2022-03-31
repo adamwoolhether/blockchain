@@ -18,6 +18,7 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 	"github.com/adamwoolhether/blockchain/foundation/logger"
+	"github.com/adamwoolhether/blockchain/foundation/nameservice"
 )
 
 // build is the git version of this program. It is set using build flags in the makefile.
@@ -101,8 +102,18 @@ func run(log *zap.SugaredLogger) error {
 	log.Infow("startup", "config", out)
 	
 	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Blockchain Support
+	// Name Service Support
+	ns, err := nameservice.New(cfg.NameService.Folder)
+	if err != nil {
+		return fmt.Errorf("unable to load account name service: %w", err)
+	}
 	
+	for account, name := range ns.Copy() {
+		log.Infow("startup", "status", "nameservice", "name", name, "account", account)
+	}
+	
+	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Blockchain Support
 	path := fmt.Sprintf("%s%s.ecdsa", cfg.NameService.Folder, cfg.Node.MinerName)
 	privateKey, err := crypto.LoadECDSA(path)
 	if err != nil {
@@ -147,6 +158,7 @@ func run(log *zap.SugaredLogger) error {
 		Shutdown: shutdown,
 		Log:      log,
 		State:    state,
+		NS:       ns,
 	})
 	
 	// Construct a server to service the requets against the Mux.
