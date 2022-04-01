@@ -11,6 +11,7 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/accounts"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
@@ -28,6 +29,7 @@ type Config struct {
 	MinerAccount storage.Account
 	Host         string
 	DBPath       string
+	KnownPeers   *peer.Set
 	EvHandler    EventHandler
 }
 
@@ -36,6 +38,7 @@ type State struct {
 	minerAccount storage.Account
 	host         string
 	dbPath       string
+	knownPeers   *peer.Set
 	
 	evHandler EventHandler
 	
@@ -112,6 +115,7 @@ func New(cfg Config) (*State, error) {
 		minerAccount: cfg.MinerAccount,
 		host:         cfg.Host,
 		dbPath:       cfg.DBPath,
+		knownPeers:   cfg.KnownPeers,
 		evHandler:    ev,
 		
 		genesis:     gen,
