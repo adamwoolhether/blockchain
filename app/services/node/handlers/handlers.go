@@ -25,6 +25,7 @@ type MuxConfig struct {
 
 // PublicMux constructs a http.Handler with all application routes defined.
 func PublicMux(cfg MuxConfig) http.Handler {
+	// Construct the web.App which holds all routes as well as common Middleware.
 	app := web.NewApp(
 		cfg.Shutdown,
 		mid.Logger(cfg.Log),
@@ -43,6 +44,27 @@ func PublicMux(cfg MuxConfig) http.Handler {
 	
 	// Load the v1 routes.
 	v1.PublicRoutes(app, v1.Config{
+		Log:   cfg.Log,
+		State: cfg.State,
+		NS:    cfg.NS,
+	})
+	
+	return app
+}
+
+// PrivateMux constructs a http.Handler with all application routes defines.
+func PrivateMux(cfg MuxConfig) http.Handler {
+	// Construct the web.App which holds all routes as well as common Middleware.
+	app := web.NewApp(
+		cfg.Shutdown,
+		mid.Logger(cfg.Log),
+		mid.Errors(cfg.Log),
+		mid.Cors("*"),
+		mid.Panics(),
+	)
+	
+	// Load the v1 routes.
+	v1.PrivateRoutes(app, v1.Config{
 		Log:   cfg.Log,
 		State: cfg.State,
 		NS:    cfg.NS,

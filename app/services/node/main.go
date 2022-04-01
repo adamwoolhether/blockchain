@@ -161,7 +161,7 @@ func run(log *zap.SugaredLogger) error {
 	// Start Public Service
 	log.Infow("startup", "status", "initializing V1 public API support")
 	
-	// Construct the mux for public API calls
+	// Construct the mux for public API calls.
 	publicMux := handlers.PublicMux(handlers.MuxConfig{
 		Shutdown: shutdown,
 		Log:      log,
@@ -183,6 +183,33 @@ func run(log *zap.SugaredLogger) error {
 	go func() {
 		log.Infow("startup", "status", "public api router started", "host", public.Addr)
 		serverErrors <- public.ListenAndServe()
+	}()
+	
+	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Start Private Service
+	log.Infow("startup", "status", "initializing V1 private API support")
+	
+	// Construct the mux for private API calls.
+	privateMux := handlers.PrivateMux(handlers.MuxConfig{
+		Shutdown: shutdown,
+		Log:      log,
+		State:    st,
+	})
+	
+	// Construct a server to service the requets against the Mux.
+	private := http.Server{
+		Addr:         cfg.Web.PrivateHost,
+		Handler:      privateMux,
+		ReadTimeout:  cfg.Web.ReadTimeout,
+		WriteTimeout: cfg.Web.WriteTimeout,
+		IdleTimeout:  cfg.Web.IdleTimeout,
+		ErrorLog:     zap.NewStdLog(log.Desugar()),
+	}
+	
+	// Start the service listening for api requests.
+	go func() {
+		log.Infow("startup", "status", "private api router started", "host", private.Addr)
+		serverErrors <- private.ListenAndServe()
 	}()
 	
 	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////

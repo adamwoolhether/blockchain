@@ -7,6 +7,7 @@ import (
 	
 	"go.uber.org/zap"
 	
+	"github.com/adamwoolhether/blockchain/app/services/node/handlers/v1/private"
 	"github.com/adamwoolhether/blockchain/app/services/node/handlers/v1/public"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/nameservice"
@@ -34,4 +35,19 @@ func PublicRoutes(app *web.App, cfg Config) {
 	app.Handle(http.MethodPost, version, "/tx/submit", pbl.SubmitWalletTransaction)
 	app.Handle(http.MethodGet, version, "/genesis", pbl.Genesis)
 	app.Handle(http.MethodGet, version, "/accounts/list", pbl.Accounts)
+}
+
+// PrivateRoutes binds all version 1 private routes.
+func PrivateRoutes(app *web.App, cfg Config) {
+	prv := private.Handlers{
+		Log:   cfg.Log,
+		State: cfg.State,
+		NS:    cfg.NS,
+	}
+	
+	app.Handle(http.MethodGet, version, "/node/status", prv.Status)
+	app.Handle(http.MethodGet, version, "/node/block/list/:from/:to", prv.BlocksByNumber)
+	app.Handle(http.MethodPost, version, "/node/block/next", prv.AddPeersBlock)
+	app.Handle(http.MethodPost, version, "/node/tx/submit", prv.SubmitNodeTransaction)
+	app.Handle(http.MethodGet, version, "/node/tx/list", prv.Mempool)
 }
