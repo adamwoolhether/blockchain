@@ -5,6 +5,7 @@ package state
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 	
@@ -12,12 +13,17 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/signature"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
 // ErrNotEnoughTransactions is returned when a block is requested
 // to be created and there aren't enough transactions.
 var ErrNotEnoughTransactions = errors.New("not enough transactions in mempool")
+
+// ErrChainForked is returned from the validateNextBlock if another
+// node's chain is two or more blocks ahead of ours.
+var ErrChainForked = errors.New("blockchain forked, start resync")
 
 // EventHandler defines a function that is called
 // when events occur in the processing of persisting blocks.
@@ -207,6 +213,35 @@ func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration,
 	return blockFS.Block, duration, nil
 }
 
+// WritePeerBlock takes a block received from  a peer, validates
+// if and if that passes, writes the block to disk.
+func (s *State) WritePeerBlock(block storage.Block) error {
+	s.evHandler("state: WritePeerBlock: started : block[%s]", block.Hash())
+	defer s.evHandler("state: WritePeerBlock: completed")
+	
+	// If the runMiningOperation function is being executed it needs to stop
+	// immediately. The G executing runMiningOperation will not return from the
+	// function until done is called. That allows this function to complete
+	// its state changes before a new mining operation takes over.
+	done := s.worker.signalCancelMining()
+	defer func() {
+		s.evHandler("state: WritePeerBlock: signal runMiningOperation to terminate")
+		done()
+	}()
+	
+	hash, err := s.validateBlock(block)
+	if err != nil {
+		return err
+	}
+	
+	blockFS := storage.BlockFS{
+		Hash:  hash,
+		Block: block,
+	}
+	
+	return s.updateLocalState(blockFS)
+}
+
 // updateLocalState takes the blockFS and updates the current state of
 // the chain, including adding the block to disk.
 func (s *State) updateLocalState(blockFS storage.BlockFS) error {
@@ -245,6 +280,50 @@ func (s *State) updateLocalState(blockFS storage.BlockFS) error {
 	return nil
 }
 
+// validateBlock takes a block and validates it to be
+// included into the blockchain.
+func (s *State) validateBlock(block storage.Block) (string, error) {
+	s.evHandler("state: WriteNextBlock: validate: hash solved")
+	
+	hash := block.Hash()
+	if !isHashSolved(block.Header.Difficulty, hash) {
+		return signature.ZeroHash, fmt.Errorf("%s invalid hash", hash)
+	}
+	
+	latestBlock := s.RetrieveLatestBlock()
+	nextNumber := latestBlock.Header.Number + 1
+	
+	s.evHandler("state: WriteNextBlock: validate: chain not forked")
+	
+	// The node who sent this block has a chain that is two or more blocks ahead
+	// of ours. This means there has been a fork and we are on the wrong side.
+	if block.Header.Number >= (nextNumber + 2) {
+		return signature.ZeroHash, ErrChainForked
+	}
+	
+	s.evHandler("state: WriteNextBlock: validate: block number")
+	
+	if block.Header.Number != nextNumber {
+		return signature.ZeroHash, fmt.Errorf("this block is not the next number, got %d, exp %d", block.Header.Number, nextNumber)
+	}
+	
+	s.evHandler("state: WriteNextBlock: validate: parent hash")
+	
+	if block.Header.ParentHash != latestBlock.Hash() {
+		return signature.ZeroHash, fmt.Errorf("prev block doesn't match out latest, got %s, exp %s", block.Header.ParentHash, latestBlock.Hash())
+	}
+	
+	s.evHandler("state: WriteNextBlock: validate: transaction signatures")
+	
+	for _, tx := range block.Transactions {
+		if err := s.validateTransaction(tx.SignedTx); err != nil {
+			return signature.ZeroHash, fmt.Errorf("transaction has invalid signature or other problems, %w, tx[%v]", err, tx)
+		}
+	}
+	
+	return hash, nil
+}
+
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // RetrieveMempool retusn a copy of the mempool.
@@ -270,11 +349,42 @@ func (s *State) RetrieveLatestBlock() storage.Block {
 	return s.latestBlock
 }
 
+// RetrieveKnownPeers returns a copy of the current latest block.
+func (s *State) RetrieveKnownPeers() []peer.Peer {
+	return s.knownPeers.Copy(s.host)
+}
+
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// QueryLatest represents a query to the latest block in the chain.
+const QueryLatest = ^uint64(0) >> 1
 
 // QueryMempoolLength returns the current length of the mempool.
 func (s *State) QueryMempoolLength() int {
 	return s.mempool.Count()
+}
+
+// QueryBlocksByNumber returns the set of blocks based on block numbers.
+// This function reads the blockchain from the disk first.
+func (s *State) QueryBlocksByNumber(from, to uint64) []storage.Block {
+	blocks, err := s.storage.ReadAllBlocks()
+	if err != nil {
+		return nil
+	}
+	
+	if from == QueryLatest {
+		from = blocks[len(blocks)-1].Header.Number
+		to = from
+	}
+	
+	var out []storage.Block
+	for _, block := range blocks {
+		if block.Header.Number >= from && block.Header.Number <= to {
+			out = append(out, block)
+		}
+	}
+	
+	return out
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -289,46 +399,16 @@ func (s *State) validateTransaction(signedTx storage.SignedTx) error {
 	return nil
 }
 
-// // MineNextBlock returns a copy of the mempool.
-// func (s *State) MineNextBlock() error {
-// 	txs := s.mempool.PickBest(2)
-// 	block := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, s.latestBlock, txs)
-//
-// 	s.evHandler("worker: MineNextBlock: MINING: find hash")
-//
-// 	blockFS, _, err := performPOW(context.TODO(), s.genesis.Difficulty, block, s.evHandler)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	s.evHandler("worker: MineNextBlock: MINING: write block to disk")
-//
-// 	// Write new block to the chain on disk.
-// 	if err := s.storage.Write(blockFS); err != nil {
-// 		return err
-// 	}
-//
-// 	s.evHandler("worker: MineNextBlock: MINING: remove tx from mempool")
-//
-// 	s.accounts.ApplyMiningReward(s.minerAccount)
-//
-// 	for _, tx := range txs {
-// 		from, err := tx.FromAccount() // TODO
-// 		if err != nil {
-// 			return err
-// 		}
-//
-// 		s.evHandler("worker: MineNextBlock: MINING: UPDATE ACCOUNTS: %s:%d", from, tx.Nonce)
-// 		s.accounts.ApplyTx(s.minerAccount, tx)
-//
-// 		s.evHandler("worker: MineNextBlock: MINING: REMOVE: %s:%d", from, tx.Nonce)
-// 		if err := s.mempool.Delete(tx); err != nil {
-// 			return err
-// 		}
-// 	}
-//
-// 	// Save this is the latest block.
-// 	s.latestBlock = blockFS.Block
-//
-// 	return nil
-// }
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// addPeerNode adds a peer to the list of peers.
+func (s *State) addPeerNode(peer peer.Peer) error {
+	// Don't add this node to the known peer list.
+	if peer.Match(s.host) {
+		return errors.New("already exists")
+	}
+	
+	s.knownPeers.Add(peer)
+	
+	return nil
+}
