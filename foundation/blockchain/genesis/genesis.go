@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"time"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
@@ -27,12 +27,12 @@ func Load() (Genesis, error) {
 	if err != nil {
 		return Genesis{}, err
 	}
-	
+
 	var genesis Genesis
 	err = json.Unmarshal(content, &genesis)
 	if err != nil {
 		return Genesis{}, err
 	}
-	
+
 	return genesis, nil
 }

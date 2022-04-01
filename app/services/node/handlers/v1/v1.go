@@ -4,9 +4,9 @@ package v1
 
 import (
 	"net/http"
-	
+
 	"go.uber.org/zap"
-	
+
 	"github.com/adamwoolhether/blockchain/app/services/node/handlers/v1/private"
 	"github.com/adamwoolhether/blockchain/app/services/node/handlers/v1/public"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
@@ -30,7 +30,7 @@ func PublicRoutes(app *web.App, cfg Config) {
 		State: cfg.State,
 		NS:    cfg.NS,
 	}
-	
+
 	app.Handle(http.MethodGet, version, "/tx/uncommitted/list", pbl.Mempool)
 	app.Handle(http.MethodPost, version, "/tx/submit", pbl.SubmitWalletTransaction)
 	app.Handle(http.MethodGet, version, "/genesis", pbl.Genesis)
@@ -44,7 +44,7 @@ func PrivateRoutes(app *web.App, cfg Config) {
 		State: cfg.State,
 		NS:    cfg.NS,
 	}
-	
+
 	app.Handle(http.MethodGet, version, "/node/status", prv.Status)
 	app.Handle(http.MethodGet, version, "/node/block/list/:from/:to", prv.BlocksByNumber)
 	app.Handle(http.MethodPost, version, "/node/block/next", prv.MinePeerBlock)

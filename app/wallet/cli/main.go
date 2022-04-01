@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	
+
 	"github.com/ethereum/go-ethereum/crypto"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
@@ -19,7 +19,7 @@ func main() {
 	value := flag.Uint("v", 0, "value")
 	tip := flag.Uint("p", 0, "tip")
 	flag.Parse()
-	
+
 	err := sendTran(*to, *nonce, *value, *tip)
 	if err != nil {
 		log.Fatalln(err)
@@ -31,34 +31,34 @@ func sendTran(to string, nonce, value, tip uint) error {
 	if err != nil {
 		return err
 	}
-	
+
 	toAccount, err := storage.ToAccount(to)
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	userTx, err := storage.NewUserTx(nonce, toAccount, value, tip, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	walletTx, err := userTx.Sign(privateKey)
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	data, err := json.Marshal(walletTx)
 	if err != nil {
 		log.Fatal(err)
 	}
-	
-	url := "http://localhost:8180"
+
+	url := "http://localhost:8080"
 	resp, err := http.Post(fmt.Sprintf("%s/v1/tx/submit", url), "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
-	
+
 	return nil
 }
 
@@ -67,10 +67,10 @@ func genKey() error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	if err := crypto.SaveECDSA("./adam.ecdsa", privateKey); err != nil {
 		log.Fatal(err)
 	}
-	
+
 	return nil
 }

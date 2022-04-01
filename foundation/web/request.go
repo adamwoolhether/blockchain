@@ -3,7 +3,7 @@ package web
 import (
 	"encoding/json"
 	"net/http"
-	
+
 	"github.com/dimfeld/httptreemux/v5"
 )
 
@@ -23,6 +23,6 @@ func Decode(r *http.Request, val any) error {
 	if err := decoder.Decode(val); err != nil {
 		return err
 	}
-	
+
 	return nil
 }

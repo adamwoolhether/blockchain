@@ -17,11 +17,11 @@ func New(service string) (*zap.SugaredLogger, error) {
 	config.InitialFields = map[string]any{
 		"service": service,
 	}
-	
+
 	log, err := config.Build()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return log.Sugar(), nil
 }

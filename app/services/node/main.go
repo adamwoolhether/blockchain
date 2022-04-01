@@ -59,7 +59,7 @@ func run(log *zap.SugaredLogger) error {
 			MinerName      string   `conf:"default:miner1"`
 			DBPath         string   `conf:"default:zblock/blocks.db"`
 			SelectStrategy string   `conf:"default:Tip"`
-			KnownPeers     []string `conf:"default:0.0.0.0:9080,0.0.0.0:9180"`
+			KnownPeers     []string `conf:"default:0.0.0.0:9080;0.0.0.0:9180"`
 		}
 		NameService struct {
 			Folder string `conf:"default:zblock/accounts/"`
@@ -169,7 +169,7 @@ func run(log *zap.SugaredLogger) error {
 		NS:       ns,
 	})
 	
-	// Construct a server to service the requets against the Mux.
+	// Construct a server to service the requests against the Mux.
 	public := http.Server{
 		Addr:         cfg.Web.PublicHost,
 		Handler:      publicMux,
@@ -196,7 +196,7 @@ func run(log *zap.SugaredLogger) error {
 		State:    st,
 	})
 	
-	// Construct a server to service the requets against the Mux.
+	// Construct a server to service the requests against the Mux.
 	private := http.Server{
 		Addr:         cfg.Web.PrivateHost,
 		Handler:      privateMux,
@@ -223,15 +223,26 @@ func run(log *zap.SugaredLogger) error {
 		log.Infow("shutdown", "status", "shutdown started", "signal", sig)
 		defer log.Infow("shutdown", "status", "shutdown complete", "signal", sig)
 		
-		// Give a requests deadline for completion
+		// Give outstanding requests a deadline for completion.
 		ctx, cancelPub := context.WithTimeout(context.Background(), cfg.Web.ShutdownTimeout)
 		defer cancelPub()
 		
-		// Ask listener to shutdown and shed load
+		// Asking listener to shut down and shed load.
+		log.Infow("shutdown", "status", "shutdown private API started")
+		if err := private.Shutdown(ctx); err != nil {
+			private.Close()
+			return fmt.Errorf("could not stop private service gracefully: %w", err)
+		}
+		
+		// Give outstanding requests a deadline for completion.
+		ctx, cancelPri := context.WithTimeout(context.Background(), cfg.Web.ShutdownTimeout)
+		defer cancelPri()
+		
+		// Asking listener to shut down and shed load.
 		log.Infow("shutdown", "status", "shutdown public API started")
 		if err := public.Shutdown(ctx); err != nil {
 			public.Close()
-			return fmt.Errorf("couldn't stop public service gracefully: %w", err)
+			return fmt.Errorf("could not stop public service gracefully: %w", err)
 		}
 	}
 	

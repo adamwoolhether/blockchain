@@ -8,9 +8,9 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	
+
 	"github.com/ethereum/go-ethereum/crypto"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
@@ -24,31 +24,31 @@ func New(root string) (*NameService, error) {
 	ns := NameService{
 		accounts: make(map[storage.Account]string),
 	}
-	
+
 	fn := func(fileName string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return fmt.Errorf("walkdir failure: %w", err)
 		}
-		
+
 		if path.Ext(fileName) != ".ecdsa" {
 			return nil
 		}
-		
+
 		privateKey, err := crypto.LoadECDSA(fileName)
 		if err != nil {
 			return err
 		}
-		
+
 		account := storage.PublicKeyToAccount(privateKey.PublicKey)
 		ns.accounts[account] = strings.TrimSuffix(path.Base(fileName), ".ecdsa")
-		
+
 		return nil
 	}
-	
+
 	if err := filepath.Walk(root, fn); err != nil {
 		return nil, fmt.Errorf("walking directory: %w", err)
 	}
-	
+
 	return &ns, nil
 }
 
@@ -58,7 +58,7 @@ func (ns *NameService) Lookup(account storage.Account) string {
 	if !exists {
 		return string(account)
 	}
-	
+
 	return name
 }
 
@@ -68,6 +68,6 @@ func (ns *NameService) Copy() map[storage.Account]string {
 	for account, name := range ns.accounts {
 		cpy[account] = name
 	}
-	
+
 	return cpy
 }
