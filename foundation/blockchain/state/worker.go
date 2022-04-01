@@ -25,7 +25,6 @@ type worker struct {
 	wg           sync.WaitGroup
 	ticker       time.Ticker
 	shut         chan struct{}
-	peerUpdates  chan bool
 	startMining  chan bool
 	cancelMining chan chan struct{}
 	evHandler    EventHandler
@@ -40,7 +39,6 @@ func runWorker(state *State, evHandler EventHandler) {
 		state:        state,
 		ticker:       *time.NewTicker(peerUpdateInterval),
 		shut:         make(chan struct{}),
-		peerUpdates:  make(chan bool, 1),
 		startMining:  make(chan bool, 1),
 		cancelMining: make(chan chan struct{}, 1),
 		evHandler:    evHandler,
@@ -52,6 +50,7 @@ func runWorker(state *State, evHandler EventHandler) {
 	
 	// Load the set of operations needed to run.
 	operations := []func(){
+		state.worker.peerOperations,
 		state.worker.miningOperations,
 	}
 	
@@ -82,6 +81,9 @@ func runWorker(state *State, evHandler EventHandler) {
 func (w *worker) shutdown() {
 	w.evHandler("worker: shutdown: started")
 	defer w.evHandler("worker: shutdown: completed")
+	
+	w.evHandler("worker: shutdown: stop ticker")
+	w.ticker.Stop()
 	
 	w.evHandler("worker: shutdown: signal cancel mining")
 	done := w.signalCancelMining()
@@ -214,6 +216,24 @@ func (w *worker) writePeerBlocks(pr peer.Peer) error {
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// peerOperations handles finding new peers.
+func (w *worker) peerOperations() {
+	w.evHandler("worker: peerOperations: G started")
+	defer w.evHandler("worker: peerOperations: G completed")
+	
+	for {
+		select {
+		case <-w.ticker.C:
+			if !w.isShutdown() {
+				w.runFindNewPeersOperation()
+			}
+		case <-w.shut:
+			w.evHandler("worker: peerOperatios: received shutdown signal")
+			return
+		}
+	}
+}
+
 // miningOperations handles mining.
 func (w *worker) miningOperations() {
 	w.evHandler("worker: miningOperations: G started")
@@ -271,6 +291,25 @@ func (w *worker) signalCancelMining() (done func()) {
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// runFindNewPeersOperation updates the peer list.
+func (w *worker) runFindNewPeersOperation() {
+	w.evHandler("worker: runFindNewPeersOperation: started")
+	defer w.evHandler("worker: runFindNewPeersOperation: completed")
+	
+	for _, pr := range w.state.RetrieveKnownPeers() {
+		// Retrieve the status of this peer.
+		peerStatus, err := w.queryPeerStatus(pr)
+		if err != nil {
+			w.evHandler("worker: runFindNewPeersOperation: queryPeerStatus: %s: ERROR: %s", pr.Host, err)
+		}
+		
+		// Add new peers to this nodes list.
+		if err := w.addNewPeers(peerStatus.KnownPeers); err != nil {
+			w.evHandler("worker: runFindNewPeersOperation: addNewPeers: %s: ERROR: %s", pr.Host, err)
+		}
+	}
+}
 
 // runMiningOperation takes all the transactions from the
 // mempool and writes a new block to the database.
