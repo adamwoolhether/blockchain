@@ -13,6 +13,7 @@ import (
 	v1 "github.com/adamwoolhether/blockchain/business/web/v1"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 	"github.com/adamwoolhether/blockchain/foundation/nameservice"
 	"github.com/adamwoolhether/blockchain/foundation/web"
 )
@@ -26,8 +27,28 @@ type Handlers struct {
 
 // SubmitNodeTransaction adds new node transactions to the mempool.
 func (h Handlers) SubmitNodeTransaction(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	v, err := web.GetValues(ctx)
+	if err != nil {
+		return web.NewShutdownError("web value missing from context")
+	}
 	
-	return nil
+	var tx storage.BlockTx
+	if err := web.Decode(r, &tx); err != nil {
+		return fmt.Errorf("unable to decode payload: %w", err)
+	}
+	
+	h.Log.Infow("add user tran", "traceid", v.TraceID, "from:nonce", tx, "to", tx.To, "value", tx.Value, "tip", tx.Tip)
+	if err := h.State.SubmitNodeTransaction(tx); err != nil {
+		return v1.NewRequestError(err, http.StatusBadRequest)
+	}
+	
+	resp := struct {
+		Status string `json:"status"`
+	}{
+		Status: "transactions added to mempool",
+	}
+	
+	return web.Respond(ctx, w, resp, http.StatusOK)
 }
 
 // AddPeersBlock accepts a newly mined block from a peer, validates it,

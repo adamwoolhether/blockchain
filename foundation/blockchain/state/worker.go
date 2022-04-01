@@ -15,6 +15,13 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
+// maxTxShareRequests represents the max number of pending-tx network
+// share requests that can be outstanding before share requests are dropped.
+// To keep this simple, a buffered channel of this arbitrary number is being
+// used. If the channel becomes full, requests for new transactions to be
+// shared will not be accepted. This isn't production friendly.
+const maxTxShareRequests = 100
+
 // peerUpdateInterval represents the interval of time to find new peer
 // nodes and update the blockchain on disk with missing blocks.
 const peerUpdateInterval = time.Minute
@@ -27,6 +34,7 @@ type worker struct {
 	shut         chan struct{}
 	startMining  chan bool
 	cancelMining chan chan struct{}
+	txSharing    chan storage.BlockTx
 	evHandler    EventHandler
 	baseURL      string
 }
@@ -41,6 +49,7 @@ func runWorker(state *State, evHandler EventHandler) {
 		shut:         make(chan struct{}),
 		startMining:  make(chan bool, 1),
 		cancelMining: make(chan chan struct{}, 1),
+		txSharing:    make(chan storage.BlockTx, maxTxShareRequests),
 		evHandler:    evHandler,
 		baseURL:      "http://%s/v1/node",
 	}
@@ -52,6 +61,7 @@ func runWorker(state *State, evHandler EventHandler) {
 	operations := []func(){
 		state.worker.peerOperations,
 		state.worker.miningOperations,
+		state.worker.shareTxOperations,
 	}
 	
 	// Set waitgroup to match the number of G's needed
@@ -262,6 +272,24 @@ func (w *worker) isShutdown() bool {
 	}
 }
 
+// shareTxOperations handles sharing new user transactions.
+func (w *worker) shareTxOperations() {
+	w.evHandler("worker: shareTxOperations: G started")
+	defer w.evHandler("worker: shareTxOperations: G completed")
+	
+	for {
+		select {
+		case tx := <-w.txSharing:
+			if !w.isShutdown() {
+				w.runShareTxOperation(tx)
+			}
+		case <-w.shut:
+			w.evHandler("worker: shareTxOperations: received shut signal")
+			return
+		}
+	}
+}
+
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // signalStartMining starts a mining operation. If there is already a signal
@@ -272,6 +300,17 @@ func (w *worker) signalStartMining() {
 	default:
 	}
 	w.evHandler("worker: signalStartMining: mining signaled")
+}
+
+// signalShareTransactions queues up a share transaction operation. If
+// maxTxsShareRequests signals exit in the channel, these won't be sent.
+func (w *worker) signalShareTransactions(blockTx storage.BlockTx) {
+	select {
+	case w.txSharing <- blockTx:
+		w.evHandler("worker: signalShareTransactions: share Tx signaled")
+	default:
+		w.evHandler("worker: signalShareTransactions: queue full, transactions won't be shared")
+	}
 }
 
 // signalCancelMining signals the G executing the runMiningOperation function
@@ -402,6 +441,21 @@ func (w *worker) runMiningOperation() {
 	
 	// Wait for both G's to terminate.
 	wg.Wait()
+}
+
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// runShareTxOperation updates the peer list and syncs up the database.
+func (w *worker) runShareTxOperation(tx storage.BlockTx) {
+	w.evHandler("worker: runShareTxOperation: started")
+	defer w.evHandler("worker: runShareTxOperation: completed")
+	
+	for _, pr := range w.state.RetrieveKnownPeers() {
+		url := fmt.Sprintf("%s/tx/submit", fmt.Sprintf(w.baseURL, pr.Host))
+		if err := send(http.MethodPost, url, tx, nil); err != nil {
+			w.evHandler("worker: runShareTxOperation: WARNING: %s", err)
+		}
+	}
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
