@@ -25,7 +25,7 @@ func performPOW(ctx context.Context, difficulty int, b storage.Block, ev EventHa
 	// Choose a random starting point for the nonce.
 	nBig, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	if err != nil {
-		return storage.BlockFS{}, 0, ctx.Err()
+		return storage.BlockFS{}, time.Since(t), ctx.Err()
 	}
 	b.Header.Nonce = nBig.Uint64()
 	
@@ -36,20 +36,20 @@ func performPOW(ctx context.Context, difficulty int, b storage.Block, ev EventHa
 			ev("worker: runMiningOperation: MINING: POW: attempts[%d]", attempts)
 		}
 		
-		// Did we timeout trying to solve the problem?
+		// Did we timeout trying to solve the problem.
 		if ctx.Err() != nil {
 			ev("worker: runMiningOperation: MINING: POW: CANCELLED")
 			return storage.BlockFS{}, time.Since(t), ctx.Err()
 		}
 		
-		// Hash the block and check if we solved the puzzle.
+		// Hash the block and check if we have solved the puzzle.
 		hash := b.Hash()
 		if !isHashSolved(difficulty, hash) {
 			b.Header.Nonce++
 			continue
 		}
 		
-		// Did we timeout trying to solve the problem?
+		// Did we timeout trying to solve the problem.
 		if ctx.Err() != nil {
 			ev("worker: runMiningOperation: MINING: POW: CANCELLED")
 			return storage.BlockFS{}, time.Since(t), ctx.Err()

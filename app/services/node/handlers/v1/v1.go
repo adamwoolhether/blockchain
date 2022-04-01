@@ -23,7 +23,7 @@ type Config struct {
 	NS    *nameservice.NameService
 }
 
-// PublicRoutes binds all version 1 public routes.
+// PublicRoutes binds all the version 1 public routes.
 func PublicRoutes(app *web.App, cfg Config) {
 	pbl := public.Handlers{
 		Log:   cfg.Log,
@@ -37,7 +37,7 @@ func PublicRoutes(app *web.App, cfg Config) {
 	app.Handle(http.MethodGet, version, "/accounts/list", pbl.Accounts)
 }
 
-// PrivateRoutes binds all version 1 private routes.
+// PrivateRoutes binds all the version 1 private routes.
 func PrivateRoutes(app *web.App, cfg Config) {
 	prv := private.Handlers{
 		Log:   cfg.Log,
@@ -47,7 +47,7 @@ func PrivateRoutes(app *web.App, cfg Config) {
 	
 	app.Handle(http.MethodGet, version, "/node/status", prv.Status)
 	app.Handle(http.MethodGet, version, "/node/block/list/:from/:to", prv.BlocksByNumber)
-	app.Handle(http.MethodPost, version, "/node/block/next", prv.AddPeersBlock)
+	app.Handle(http.MethodPost, version, "/node/block/next", prv.MinePeerBlock)
 	app.Handle(http.MethodPost, version, "/node/tx/submit", prv.SubmitNodeTransaction)
 	app.Handle(http.MethodGet, version, "/node/tx/list", prv.Mempool)
 }

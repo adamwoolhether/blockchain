@@ -52,7 +52,7 @@ func sendTran(to string, nonce, value, tip uint) error {
 		log.Fatal(err)
 	}
 	
-	url := "http://localhost:8080"
+	url := "http://localhost:8180"
 	resp, err := http.Post(fmt.Sprintf("%s/v1/tx/submit", url), "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		log.Fatal(err)

@@ -197,34 +197,34 @@ func (s *State) SubmitNodeTransaction(tx storage.BlockTx) error {
 // MineNewBlock attempts to create a new block with a proper hash
 // that can become the the next block in the chain.
 func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration, error) {
-	s.evHandler("worker: MineNewBlock: MINING: check mempool count")
+	s.evHandler("state: MineNewBlock: MINING: check mempool count")
 	
 	// Are there enough transactions in the pool.
 	if s.mempool.Count() < s.genesis.TxsPerBlock {
 		return storage.Block{}, 0, ErrNotEnoughTransactions
 	}
 	
-	s.evHandler("worker: MineNewBlock: MINING: create new block: pick %d", s.genesis.TxsPerBlock)
+	s.evHandler("state: MineNewBlock: MINING: create new block: pick %d", s.genesis.TxsPerBlock)
 	
-	// Create a new block which ones it's own copy of the transactions.
+	// Create a new block which owns it's own copy of the transactions.
 	txs := s.mempool.PickBest(s.genesis.TxsPerBlock)
-	block := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, s.RetrieveLatestBlock(), txs)
+	nb := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, s.RetrieveLatestBlock(), txs)
 	
-	s.evHandler("worker: MineNewBlock: MINING: perform POW")
+	s.evHandler("state: MineNewBlock: MINING: perform POW")
 	
-	// Attempt to create a new BlockFS by solving
-	// the POW puzzle. This can be cancelled.
-	blockFS, duration, err := performPOW(ctx, s.genesis.Difficulty, block, s.evHandler)
+	// Attempt to create a new BlockFS by solving the POW puzzle.
+	// This can be cancelled.
+	blockFS, duration, err := performPOW(ctx, s.genesis.Difficulty, nb, s.evHandler)
 	if err != nil {
 		return storage.Block{}, duration, err
 	}
 	
-	// Check one more time cancellation hasn't occurred.
+	// Just check one more time we were not cancelled.
 	if ctx.Err() != nil {
 		return storage.Block{}, duration, ctx.Err()
 	}
 	
-	s.evHandler("worker: MineNewBlock: MINING: update local state")
+	s.evHandler("state: MineNewBlock: MINING: update local state")
 	
 	if err := s.updateLocalState(blockFS); err != nil {
 		return storage.Block{}, duration, err
@@ -233,19 +233,19 @@ func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration,
 	return blockFS.Block, duration, nil
 }
 
-// WritePeerBlock takes a block received from  a peer, validates
+// MinePeerBlock takes a block received from  a peer, validates
 // if and if that passes, writes the block to disk.
-func (s *State) WritePeerBlock(block storage.Block) error {
-	s.evHandler("state: WritePeerBlock: started : block[%s]", block.Hash())
-	defer s.evHandler("state: WritePeerBlock: completed")
+func (s *State) MinePeerBlock(block storage.Block) error {
+	s.evHandler("state: MinePeerBlock: started : block[%s]", block.Hash())
+	defer s.evHandler("state: MinePeerBlock: completed")
 	
 	// If the runMiningOperation function is being executed it needs to stop
 	// immediately. The G executing runMiningOperation will not return from the
 	// function until done is called. That allows this function to complete
-	// its state changes before a new mining operation takes over.
+	// its state changes before a new mining operation takes place.
 	done := s.worker.signalCancelMining()
 	defer func() {
-		s.evHandler("state: WritePeerBlock: signal runMiningOperation to terminate")
+		s.evHandler("state: MinePeerBlock: signal runMiningOperation to terminate")
 		done()
 	}()
 	
@@ -268,31 +268,31 @@ func (s *State) updateLocalState(blockFS storage.BlockFS) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	
-	s.evHandler("worker: updateLocalState: write block to disk")
+	s.evHandler("state: updateLocalState: write to disk")
 	
-	// Write new block to the chain on disk.
+	// Write the new block to the chain on disk.
 	if err := s.storage.Write(blockFS); err != nil {
 		return err
 	}
 	s.latestBlock = blockFS.Block
 	
-	s.evHandler("worker: updateLocalState: update accounts and remove from mempool")
+	s.evHandler("state: updateLocalState: update accounts and remove from mempool")
 	
 	// Process the transactions and update the accounts.
 	for _, tx := range blockFS.Block.Transactions {
-		s.evHandler("worker: updateLocalState: tx[%s] update and remove", tx)
+		s.evHandler("state: updateLocalState: tx[%s] update and remove", tx)
 		
 		// Apply the balance changes based on this transaction.
 		if err := s.accounts.ApplyTx(blockFS.Block.Header.MinerAccount, tx); err != nil {
-			s.evHandler("worker: updateLocalState: WARNING : %s", err)
+			s.evHandler("state: updateLocalState: WARNING : %s", err)
 			continue
 		}
 		
-		// Remove this tx from the mempool.
+		// Remove this transaction from the mempool.
 		s.mempool.Delete(tx)
 	}
 	
-	s.evHandler("worker: updateLocalState: apply mining reward")
+	s.evHandler("state: updateLocalState: apply mining reward")
 	
 	// Apply the mining reward for this block.
 	s.accounts.ApplyMiningReward(blockFS.Block.Header.MinerAccount)
@@ -330,7 +330,7 @@ func (s *State) validateBlock(block storage.Block) (string, error) {
 	s.evHandler("state: WriteNextBlock: validate: parent hash")
 	
 	if block.Header.ParentHash != latestBlock.Hash() {
-		return signature.ZeroHash, fmt.Errorf("prev block doesn't match out latest, got %s, exp %s", block.Header.ParentHash, latestBlock.Hash())
+		return signature.ZeroHash, fmt.Errorf("prev block doesn't match our latest, got %s, exp %s", block.Header.ParentHash, latestBlock.Hash())
 	}
 	
 	s.evHandler("state: WriteNextBlock: validate: transaction signatures")
@@ -346,7 +346,24 @@ func (s *State) validateBlock(block storage.Block) (string, error) {
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// RetrieveMempool retusn a copy of the mempool.
+// Truncate resets the chain both on disk and in memory. This
+// is used to correct an identified fork.
+func (s *State) Truncate() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	// Reset the state of the database.
+	// s.mempool.Truncate()
+	// s.accounts.Reset()
+	// s.latestBlock = storage.Block{}
+	// s.storage.Reset()
+	
+	return nil
+}
+
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// RetrieveMempool returns a copy of the mempool.
 func (s *State) RetrieveMempool() []storage.BlockTx {
 	return s.mempool.Copy()
 }
@@ -361,7 +378,7 @@ func (s *State) RetrieveAccounts() map[storage.Account]accounts.Info {
 	return s.accounts.Copy()
 }
 
-// RetrieveLatestBlock returns a copy of the current latest block.
+// RetrieveLatestBlock returns a copy the current latest block.
 func (s *State) RetrieveLatestBlock() storage.Block {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -369,7 +386,7 @@ func (s *State) RetrieveLatestBlock() storage.Block {
 	return s.latestBlock
 }
 
-// RetrieveKnownPeers returns a copy of the current latest block.
+// RetrieveKnownPeers retrieves a copy of the known peer list.
 func (s *State) RetrieveKnownPeers() []peer.Peer {
 	return s.knownPeers.Copy(s.host)
 }

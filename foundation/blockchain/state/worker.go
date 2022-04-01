@@ -136,14 +136,41 @@ func (w *worker) sync() {
 		// If this peer has blocks we don't have, we need to add them.
 		if peerStatus.LatestBlockNumber > w.state.RetrieveLatestBlock().Header.Number {
 			w.evHandler("worker: sync: writePeerBlocks: %s: latestBlockNumber[%d]", pr.Host, peerStatus.LatestBlockNumber)
-			if err := w.writePeerBlocks(pr); err != nil {
-				w.evHandler("worker: sync: writePeerBlocks: %s: ERROR: %s", pr.Host, err)
+			if err := w.retrievePeerBlocks(pr); err != nil {
+				w.evHandler("worker: sync: writePeerBlocks: %s: ERROR %s", pr.Host, err)
 			}
 		}
 	}
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// retrievePeerBlocks queries the specified node asking for blocks this
+// node does not have, then writes them to disk.
+func (w *worker) retrievePeerBlocks(pr peer.Peer) error {
+	w.evHandler("worker: sync: retrievePeerBlocks: started: %s", pr)
+	defer w.evHandler("worker: sync: retrievePeerBlocks: completed: %s", pr)
+	
+	from := w.state.RetrieveLatestBlock().Header.Number + 1
+	url := fmt.Sprintf("%s/block/list/%d/latest", fmt.Sprintf(w.baseURL, pr.Host), from)
+	
+	var blocks []storage.Block
+	if err := send(http.MethodGet, url, nil, &blocks); err != nil {
+		return err
+	}
+	
+	w.evHandler("worker: sync: retrievePeerBlocks: found blocks[%d]", len(blocks))
+	
+	for _, block := range blocks {
+		w.evHandler("worker: sync: retrievePeerBlocks: prevBlk[%s]: newBlk[%s]: numTrans[%d]", block.Header.ParentHash, block.Hash(), len(block.Transactions))
+		
+		if err := w.state.MinePeerBlock(block); err != nil {
+			return err
+		}
+	}
+	
+	return nil
+}
 
 // queryPeerStatus looks for new nodes on the blockchain by asking
 // known nodes for their peer list. New nodes are added to the list.
@@ -188,6 +215,7 @@ func (w *worker) addNewPeers(knownPeers []peer.Peer) error {
 	
 	for _, pr := range knownPeers {
 		if err := w.state.addPeerNode(pr); err != nil {
+			
 			// It already exists, nothing to report.
 			return nil
 		}
@@ -216,7 +244,7 @@ func (w *worker) writePeerBlocks(pr peer.Peer) error {
 	for _, block := range blocks {
 		w.evHandler("worker: runPeerUpdatesOperation: writePeerBlocks: prevBlk[%s]: newBlk[%s]: numTxs[%d]", block.Header.ParentHash, block.Hash(), len(block.Transactions))
 		
-		if err := w.state.WritePeerBlock(block); err != nil {
+		if err := w.state.MinePeerBlock(block); err != nil {
 			return err
 		}
 	}
@@ -238,7 +266,7 @@ func (w *worker) peerOperations() {
 				w.runFindNewPeersOperation()
 			}
 		case <-w.shut:
-			w.evHandler("worker: peerOperatios: received shutdown signal")
+			w.evHandler("worker: peerOperations: received shut signal")
 			return
 		}
 	}
@@ -303,13 +331,13 @@ func (w *worker) signalStartMining() {
 }
 
 // signalShareTransactions queues up a share transaction operation. If
-// maxTxsShareRequests signals exit in the channel, these won't be sent.
+// maxTxShareRequests signals exist in the channel, we won't send these.
 func (w *worker) signalShareTransactions(blockTx storage.BlockTx) {
 	select {
 	case w.txSharing <- blockTx:
 		w.evHandler("worker: signalShareTransactions: share Tx signaled")
 	default:
-		w.evHandler("worker: signalShareTransactions: queue full, transactions won't be shared")
+		w.evHandler("worker: signalShareTransactions: queue full, transactions won't be shared.")
 	}
 }
 
@@ -324,7 +352,7 @@ func (w *worker) signalCancelMining() (done func()) {
 	case w.cancelMining <- wait:
 	default:
 	}
-	w.evHandler("worker: signalCancelMining: mining signaled")
+	w.evHandler("worker: signalCancelMining: cancel mining signaled")
 	
 	return func() { close(wait) }
 }
@@ -337,6 +365,7 @@ func (w *worker) runFindNewPeersOperation() {
 	defer w.evHandler("worker: runFindNewPeersOperation: completed")
 	
 	for _, pr := range w.state.RetrieveKnownPeers() {
+		
 		// Retrieve the status of this peer.
 		peerStatus, err := w.queryPeerStatus(pr)
 		if err != nil {
@@ -356,15 +385,15 @@ func (w *worker) runMiningOperation() {
 	w.evHandler("worker: runMiningOperation: MINING: started")
 	defer w.evHandler("worker: runMiningOperation: MINING: completed")
 	
-	// Make sure there are at least TxsPerBlock in the mempool.
+	// Make sure there are at least transPerBlock in the mempool.
 	length := w.state.QueryMempoolLength()
 	if length < w.state.genesis.TxsPerBlock {
 		w.evHandler("worker: runMiningOperation: MINING: not enough transactions to mine: Txs[%d]", length)
 		return
 	}
 	
-	// After running a mining operation, check if a new
-	// operation should be signaled again.
+	// After running a mining operation, check if a new operation should
+	// be signaled again.
 	defer func() {
 		length := w.state.QueryMempoolLength()
 		if length >= w.state.genesis.TxsPerBlock {
@@ -373,8 +402,8 @@ func (w *worker) runMiningOperation() {
 		}
 	}()
 	
-	// If mining is signaled to be cancelled by the WriteNextBlock
-	// function, this G can't terminate until it is told it can.
+	// If mining is signalled to be cancelled by the WriteNextBlock function,
+	// this G can't terminate until it is told it can.
 	var wait chan struct{}
 	defer func() {
 		if wait != nil {
@@ -410,24 +439,24 @@ func (w *worker) runMiningOperation() {
 		case wait = <-w.cancelMining:
 			w.evHandler("worker: runMiningOperation: MINING: cancel mining requested")
 		case <-ctx.Done():
-		
 		}
 	}()
 	
-	// This G performs the mining.
+	// This G is performing the mining.
 	go func() {
 		defer func() {
 			cancel()
 			wg.Done()
 		}()
 		
-		_, duration, err := w.state.MineNewBlock(ctx)
+		block, duration, err := w.state.MineNewBlock(ctx)
 		w.evHandler("worker: runMiningOperation: MINING: mining duration[%v]", duration)
+		
 		if err != nil {
 			switch {
 			case errors.Is(err, ErrNotEnoughTransactions):
-				w.evHandler("worker: runMiningOperation: MINING: WARNING: not enough transaction in mempool")
-			case ctx.Err != nil:
+				w.evHandler("worker: runMiningOperation: MINING: WARNING: not enough transactions in mempool")
+			case ctx.Err() != nil:
 				w.evHandler("worker: runMiningOperation: MINING: CANCELLED: by request")
 			default:
 				w.evHandler("worker: runMiningOperation: MINING: ERROR: %s", err)
@@ -435,17 +464,43 @@ func (w *worker) runMiningOperation() {
 			return
 		}
 		
-		// Wow, we mined a block. Send the new block to the network.
-		// Log the error, that's it.
+		// WOW, we mined a block. Send the new block to the network.
+		// Log the error, but that's it.
+		if err := w.sendBlockToPeers(block); err != nil {
+			w.evHandler("worker: runMiningOperation: MINING: sendBlockToPeers: WARNING %s", err)
+		}
 	}()
 	
 	// Wait for both G's to terminate.
 	wg.Wait()
 }
 
+// sendBlockToPeers takes the new mined block and sends it to all know peers.
+func (w *worker) sendBlockToPeers(block storage.Block) error {
+	w.evHandler("worker: runMiningOperation: MINING: sendBlockToPeers: started")
+	defer w.evHandler("worker: runMiningOperation: MINING: sendBlockToPeers: completed")
+	
+	for _, pr := range w.state.RetrieveKnownPeers() {
+		url := fmt.Sprintf("%s/block/next", fmt.Sprintf(w.baseURL, pr.Host))
+		
+		var status struct {
+			Status string        `json:"status"`
+			Block  storage.Block `json:"block"`
+		}
+		
+		if err := send(http.MethodPost, url, block, &status); err != nil {
+			return fmt.Errorf("%s: %s", pr.Host, err)
+		}
+		
+		w.evHandler("worker: runMiningOperation: MINING: sendBlockToPeers: sent to peer[%s]", pr)
+	}
+	
+	return nil
+}
+
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// runShareTxOperation updates the peer list and syncs up the database.
+// runShareTxOperation updates the peer list and sync's up the database.
 func (w *worker) runShareTxOperation(tx storage.BlockTx) {
 	w.evHandler("worker: runShareTxOperation: started")
 	defer w.evHandler("worker: runShareTxOperation: completed")
