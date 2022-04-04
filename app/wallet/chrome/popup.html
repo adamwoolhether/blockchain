@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ardan Wallet</title>
+    <link rel="stylesheet" href="styles/popup.css">
+    <script src="scripts/jquery-3.6.0.min.js"></script>
+    <script src="scripts/ether.js"></script>
+    <script src="scripts/popup.js?v1"></script>
+</head>
+<body>
+<div id="outerbox">
+    <div id="titlebox">
+        <div class="title">Ardan Wallet</div>
+        <div id="connected" class="notconnected">NOT CONNECTED</div>
+    </div>
+    <div class="infobox">
+        <div>
+            <div class="label">Account:</div>
+            <select class="accounts" id="from">
+                <option selected="selected" value="2a2f88c0c22872fa1bae8231f10fc77763ae4942ceb31c152e64547994239871">Adam</option>
+                <option value="88255a6b66fbdb9149829a755521939d8109e80525f88e6974e90e053b4a328a">Nikki</option>
+                <option value="ce7078216c33b43122311bafa0648b2d68fa64453e37b649b8303384708c7136">Arc</option>
+                <option value="bde7cd5610a493323bb060d071def3aacb03ce5107134f95af4ed55d0ed72f28">Goku</option>
+                <option value="af7a50010a5a3f60ce1244df9177795570c3479411150caeea13139ff0df50ac">Mantou</option>
+            </select>
+            <div id="refreshsubmit" type="button" class="buttonsmall">Refresh</div>
+            <div class="balance">
+                <div>
+                    <div class="label">Balance:</div>
+                    <div id="frombal">Not Available</div>
+                </div>
+                <div class="margin5">
+                    <div class="label">Nonce:</div>
+                    <div id="fromnonce">Not Available</div>
+                </div>
+                <div class="margin5">
+                    <div class="label">Next:</div>
+                    <div id="nextnonce">Not Available</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabsection">
+            <div class="tabbox">
+                <div type="button" id="sendbutton" class="tab">Send</div>
+                <div type="button" id="tranbutton" class="tab">Trans</div>
+                <div type="button" id="mempbutton" class="tab">Mem</div>
+            </div>
+
+            <div class="sendbox">
+                <div class="labelto">To:</div>
+                <select class="accounts" id="to">
+                    <option value="0xeCCc29987128DEbee767c1Ec6A6fea3507dEF877">Adam</option>
+                    <option selected="selected" value="0xA211f66bD829205102c33cAD3A212D7CaD66025D">Nikki</option>
+                    <option value="0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5">Mantou</option>
+                    <option value="0x118947E5266BF8Cd2E730b22f5E66a7868C6DBbC">Arc</option>
+                    <option value="0x26814dA49253798250D6c00270f2A8A6BC0424b7">Goku</option>
+                </select>
+                <div class="balance">
+                    <div class="label">Balance:</div>
+                    <span id="tobal">Not Available</span>
+                </div>
+                <div class="labelamt">Amount:</div>
+                <div><input id="sendamount" type="text" pattern="^\$\d{1,3}(,\d{3})*(\.\d+)?$" value="" data-type="currency" placeholder="$1,000 ARD"/></div>
+                <div class="labeltip">Tip:</div>
+                <div><input class="margin5" id="sendtip" type="text" pattern="^\$\d{1,3}(,\d{3})*(\.\d+)?$" value="" data-type="currency" placeholder="$0 ARD"/></div>
+                <div id="sendsubmit" type="button" class="button">Submit</div>
+            </div>
+
+            <div class="tranbox">
+                <pre id="trans"></pre>
+            </div>
+
+            <div class="mempbox">
+                <pre id="mempool"></pre>
+            </div>
+        </div>
+
+        <div class="errors">
+            <div id="errmsg"></div>
+        </div>
+    </div>
+
+    <div id="confirmationmodal" class="modal">
+        <div class="modalcontent">
+            <div class="modalheader">
+                <span class="close" id="closebuttonconf">&times;</span>
+                <span>Confirmation</span>
+            </div>
+            <div class="modalbody">
+                <div>Are you sure you want to execute this transaction?</div>
+                <div class="yesno">
+                    <div type="button" id="confirmno" class="confirmbutton">No</div>
+                    <div type="button" id="confirmyes" class="confirmbutton">Yes</div>
+                </div>
+                <div id="yesnomessage" class="yesnomessage"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="messagemodal" class="modal">
+        <div class="modalcontent">
+            <div class="modalheader">
+                <span class="close" id="closebuttonmsg">&times;</span>
+                <span>Message</span>
+            </div>
+            <div class="modalbody">
+                <div id="msg"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
