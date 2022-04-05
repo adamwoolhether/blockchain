@@ -4,7 +4,7 @@ package accounts
 import (
 	"fmt"
 	"sync"
-
+	
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
@@ -12,6 +12,7 @@ import (
 // Info represents information stored in an individual account.
 type Info struct {
 	Balance uint
+	Nonce   uint
 }
 
 // Accounts manages data related to accounts who have transacted on the blockchain.
@@ -21,17 +22,37 @@ type Accounts struct {
 	mu      sync.RWMutex
 }
 
+// New Constructs a new account and applies genesis and block information.
 func New(genesis genesis.Genesis) *Accounts {
-	accounts := Accounts{
+	accts := Accounts{
 		genesis: genesis,
 		info:    make(map[storage.Account]Info),
 	}
-
+	
 	for account, balance := range genesis.Balances {
-		accounts.info[account] = Info{Balance: balance}
+		accts.info[account] = Info{Balance: balance}
 	}
+	
+	return &accts
+}
 
-	return &accounts
+// Reset re-initializes the accounts back to the genesis information.
+func (act *Accounts) Reset() {
+	act.mu.Lock()
+	defer act.mu.Unlock()
+	
+	act.info = make(map[storage.Account]Info)
+	for account, balance := range act.genesis.Balances {
+		act.info[account] = Info{Balance: balance}
+	}
+}
+
+// Remove deletes an accounts from the accounts.
+func (act *Accounts) Remove(account storage.Account) {
+	act.mu.Lock()
+	defer act.mu.Unlock()
+	
+	delete(act.info, account)
 }
 
 // Copy makes a copy of the current information for all accounts
@@ -39,23 +60,45 @@ func New(genesis genesis.Genesis) *Accounts {
 func (act *Accounts) Copy() map[storage.Account]Info {
 	act.mu.RLock()
 	defer act.mu.RUnlock()
-
+	
 	accounts := make(map[storage.Account]Info)
 	for account, info := range act.info {
 		accounts[account] = info
 	}
-
+	
 	return accounts
+}
+
+// ValidateNonce validates the nonce for the specified transaction is larger
+// than the last nonce used by the account who signed the transaction.
+func (act *Accounts) ValidateNonce(tx storage.SignedTx) error {
+	from, err := tx.FromAccount()
+	if err != nil {
+		return err
+	}
+	
+	var info Info
+	act.mu.RLock()
+	{
+		info = act.info[from]
+	}
+	act.mu.RUnlock()
+	
+	if tx.Nonce <= info.Nonce {
+		return fmt.Errorf("invalid nonce, got %d, exp > %d", tx.Nonce, info.Nonce)
+	}
+	
+	return nil
 }
 
 // ApplyMiningReward gives the specified miner account the mining reward.
 func (act *Accounts) ApplyMiningReward(minerAccount storage.Account) {
 	act.mu.Lock()
 	defer act.mu.Unlock()
-
+	
 	info := act.info[minerAccount]
 	info.Balance += act.genesis.MiningReward
-
+	
 	act.info[minerAccount] = info
 }
 
@@ -66,30 +109,36 @@ func (act *Accounts) ApplyTx(minerAccount storage.Account, tx storage.BlockTx) e
 	if err != nil {
 		return fmt.Errorf("invalid signature, %s", err)
 	}
-
+	
 	act.mu.Lock()
 	defer act.mu.Unlock()
 	{
 		if from == tx.To {
 			return fmt.Errorf("invalid transaction, sending money to yourself, from %s to %s", from, tx.To)
 		}
-
+		
 		fromInfo := act.info[from]
+		if tx.Nonce < fromInfo.Nonce {
+			return fmt.Errorf("invalid transaction, nonce too small, last %d, tx %d", fromInfo.Nonce, tx.Nonce)
+		}
+		
 		fee := tx.Gas + tx.Tip
-
+		
 		if tx.Value+fee > act.info[from].Balance {
 			return fmt.Errorf("%s has an insufficient balance", from)
 		}
-
+		
 		toInfo := act.info[tx.To]
 		minerInfo := act.info[minerAccount]
-
+		
 		fromInfo.Balance -= tx.Value
 		toInfo.Balance += tx.Value
-
-		minerInfo.Balance += fee
+		
 		fromInfo.Balance -= fee
-
+		minerInfo.Balance += fee
+		
+		fromInfo.Nonce = tx.Nonce
+		
 		act.info[from] = fromInfo
 		act.info[tx.To] = toInfo
 		act.info[minerAccount] = minerInfo

@@ -18,6 +18,7 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
+	"github.com/adamwoolhether/blockchain/foundation/events"
 	"github.com/adamwoolhether/blockchain/foundation/logger"
 	"github.com/adamwoolhether/blockchain/foundation/nameservice"
 )
@@ -128,9 +129,12 @@ func run(log *zap.SugaredLogger) error {
 		peerSet.Add(peer.New(host))
 	}
 	
+	evts := events.New()
+	
 	ev := func(v string, args ...any) {
 		s := fmt.Sprintf(v, args...)
 		log.Infow(s, "traceid", "00000000-0000-0000-0000-000000000000")
+		evts.Send(s)
 	}
 	
 	st, err := state.New(state.Config{
@@ -167,6 +171,7 @@ func run(log *zap.SugaredLogger) error {
 		Log:      log,
 		State:    st,
 		NS:       ns,
+		Evts:     evts,
 	})
 	
 	// Construct a server to service the requests against the Mux.

@@ -424,6 +424,45 @@ func (s *State) QueryBlocksByNumber(from, to uint64) []storage.Block {
 	return out
 }
 
+// QueryAccounts returns a copy of the account informatin by account.
+func (s *State) QueryAccounts(account storage.Account) map[storage.Account]accounts.Info {
+	cpy := s.accounts.Copy()
+	
+	final := make(map[storage.Account]accounts.Info)
+	if info, exists := cpy[account]; exists {
+		final[account] = info
+	}
+	
+	return final
+}
+
+// QueryBlocksByAccount returns the set of blocks by account. If the account
+// is empty, all blocks are returns. This function reads the blockchain
+// from disk first.
+func (s *State) QueryBlocksByAccount(account storage.Account) []storage.Block {
+	blocks, err := s.storage.ReadAllBlocks()
+	if err != nil {
+		return nil
+	}
+	
+	var out []storage.Block
+blocks:
+	for _, block := range blocks {
+		for _, tx := range block.Transactions {
+			from, err := tx.FromAccount()
+			if err != nil {
+				continue
+			}
+			if account == "" || from == account || tx.To == account {
+				out = append(out, block)
+				continue blocks
+			}
+		}
+	}
+	
+	return out
+}
+
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // validateTransaction takes the signed transaction and validates
