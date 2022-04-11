@@ -138,11 +138,12 @@ func run(log *zap.SugaredLogger) error {
 	}
 	
 	st, err := state.New(state.Config{
-		MinerAccount: account,
-		Host:         cfg.Web.PrivateHost,
-		DBPath:       cfg.Node.DBPath,
-		KnownPeers:   peerSet,
-		EvHandler:    ev,
+		MinerAccount:   account,
+		Host:           cfg.Web.PrivateHost,
+		DBPath:         cfg.Node.DBPath,
+		SelectStrategy: cfg.Node.SelectStrategy,
+		KnownPeers:     peerSet,
+		EvHandler:      ev,
 	})
 	if err != nil {
 		return err

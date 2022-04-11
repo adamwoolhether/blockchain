@@ -5,19 +5,32 @@ import (
 	"fmt"
 	"sync"
 	
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool/selector"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
 // Mempool represents a cache of transactions organized by account:nonce.
 type Mempool struct {
-	pool map[string]storage.BlockTx
-	mu   sync.RWMutex
+	pool     map[string]storage.BlockTx
+	mu       sync.RWMutex
+	selectFn selector.Func
 }
 
 // New constructs a new mempool with the specified sort strategy.
 func New() (*Mempool, error) {
+	return NewWithStrategy(selector.StrategyTip)
+}
+
+// NewWithStrategy  constructs a new mempool with the specified sort strategy.
+func NewWithStrategy(strategy string) (*Mempool, error) {
+	selectFn, err := selector.Retrieve(strategy)
+	if err != nil {
+		return nil, err
+	}
+	
 	mp := Mempool{
-		pool: make(map[string]storage.BlockTx),
+		pool:     make(map[string]storage.BlockTx),
+		selectFn: selectFn,
 	}
 	
 	return &mp, nil

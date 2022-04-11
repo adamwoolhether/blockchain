@@ -26,11 +26,12 @@ type EventHandler func(v string, args ...any)
 // Config represents the configuration requires
 // to start the blockchain node.
 type Config struct {
-	MinerAccount storage.Account
-	Host         string
-	DBPath       string
-	KnownPeers   *peer.Set
-	EvHandler    EventHandler
+	MinerAccount   storage.Account
+	Host           string
+	DBPath         string
+	SelectStrategy string
+	KnownPeers     *peer.Set
+	EvHandler      EventHandler
 }
 
 // State manages the blockchain database.
@@ -92,7 +93,7 @@ func New(cfg Config) (*State, error) {
 	accts := accounts.New(gen, blocks)
 	
 	// Construct a mempool with the specified sort strategy.
-	mpool, err := mempool.New()
+	mpool, err := mempool.NewWithStrategy(cfg.SelectStrategy)
 	if err != nil {
 		return nil, err
 	}
