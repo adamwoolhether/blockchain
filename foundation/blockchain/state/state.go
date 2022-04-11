@@ -5,7 +5,6 @@ package state
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 	
@@ -13,17 +12,12 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/signature"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
 // ErrNotEnoughTransactions is returned when a block is requested
 // to be created and there aren't enough transactions.
 var ErrNotEnoughTransactions = errors.New("not enough transactions in mempool")
-
-// ErrChainForked is returned from the validateNextBlock if another
-// node's chain is two or more blocks ahead of ours.
-var ErrChainForked = errors.New("blockchain forked, start resync")
 
 // EventHandler defines a function that is called
 // when events occur in the processing of persisting blocks.
@@ -60,6 +54,13 @@ type State struct {
 
 // New constructs a new blockchain for data management.
 func New(cfg Config) (*State, error) {
+	// Build a safe event handler for use.
+	ev := func(v string, args ...any) {
+		if cfg.EvHandler != nil {
+			cfg.EvHandler(v, args...)
+		}
+	}
+	
 	// Load the genesis file to get starting
 	// balances for founders of the blockchain.
 	gen, err := genesis.Load()
@@ -75,7 +76,7 @@ func New(cfg Config) (*State, error) {
 	
 	// Load all existing blocks from storage into memory for processing.
 	// This won't work in a large system like Ethereum!
-	blocks, err := strg.ReadAllBlocks()
+	blocks, err := strg.ReadAllBlocks(ev)
 	if err != nil {
 		return nil, err
 	}
@@ -107,13 +108,6 @@ func New(cfg Config) (*State, error) {
 	mpool, err := mempool.New()
 	if err != nil {
 		return nil, err
-	}
-	
-	// Build a safe event handler for use.
-	ev := func(v string, args ...any) {
-		if cfg.EvHandler != nil {
-			cfg.EvHandler(v, args...)
-		}
 	}
 	
 	// Create the state to provide suuport for managing the blockchain.
@@ -212,9 +206,8 @@ func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration,
 	
 	s.evHandler("state: MineNewBlock: MINING: perform POW")
 	
-	// Attempt to create a new BlockFS by solving the POW puzzle.
-	// This can be cancelled.
-	blockFS, duration, err := performPOW(ctx, s.genesis.Difficulty, nb, s.evHandler)
+	// Attempt to create a new BlockFS by solving the POW puzzle. This can be cancelled.
+	blockFS, duration, err := nb.PerformPOW(ctx, s.genesis.Difficulty, s.evHandler)
 	if err != nil {
 		return storage.Block{}, duration, err
 	}
@@ -249,7 +242,7 @@ func (s *State) MinePeerBlock(block storage.Block) error {
 		done()
 	}()
 	
-	hash, err := s.validateBlock(block)
+	hash, err := block.ValidateBlock(s.latestBlock, s.evHandler)
 	if err != nil {
 		return err
 	}
@@ -300,48 +293,18 @@ func (s *State) updateLocalState(blockFS storage.BlockFS) error {
 	return nil
 }
 
-// validateBlock takes a block and validates it to be
-// included into the blockchain.
-func (s *State) validateBlock(block storage.Block) (string, error) {
-	s.evHandler("state: WriteNextBlock: validate: hash solved")
-	
-	hash := block.Hash()
-	if !isHashSolved(block.Header.Difficulty, hash) {
-		return signature.ZeroHash, fmt.Errorf("%s invalid hash", hash)
+// validateTransaction takes the signed transaction and validates
+// it has a proper signature and other aspects of the data.
+func (s *State) validateTransaction(signedTx storage.SignedTx) error {
+	if err := signedTx.Validate(); err != nil {
+		return err
 	}
 	
-	latestBlock := s.RetrieveLatestBlock()
-	nextNumber := latestBlock.Header.Number + 1
-	
-	s.evHandler("state: WriteNextBlock: validate: chain not forked")
-	
-	// The node who sent this block has a chain that is two or more blocks ahead
-	// of ours. This means there has been a fork and we are on the wrong side.
-	if block.Header.Number >= (nextNumber + 2) {
-		return signature.ZeroHash, ErrChainForked
+	if err := s.accounts.ValidateNonce(signedTx); err != nil {
+		return err
 	}
 	
-	s.evHandler("state: WriteNextBlock: validate: block number")
-	
-	if block.Header.Number != nextNumber {
-		return signature.ZeroHash, fmt.Errorf("this block is not the next number, got %d, exp %d", block.Header.Number, nextNumber)
-	}
-	
-	s.evHandler("state: WriteNextBlock: validate: parent hash")
-	
-	if block.Header.ParentHash != latestBlock.Hash() {
-		return signature.ZeroHash, fmt.Errorf("prev block doesn't match our latest, got %s, exp %s", block.Header.ParentHash, latestBlock.Hash())
-	}
-	
-	s.evHandler("state: WriteNextBlock: validate: transaction signatures")
-	
-	for _, tx := range block.Transactions {
-		if err := s.validateTransaction(tx.SignedTx); err != nil {
-			return signature.ZeroHash, fmt.Errorf("transaction has invalid signature or other problems, %w, tx[%v]", err, tx)
-		}
-	}
-	
-	return hash, nil
+	return nil
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -396,6 +359,18 @@ func (s *State) RetrieveKnownPeers() []peer.Peer {
 // QueryLatest represents a query to the latest block in the chain.
 const QueryLatest = ^uint64(0) >> 1
 
+// QueryAccounts returns a copy of the account informatin by account.
+func (s *State) QueryAccounts(account storage.Account) map[storage.Account]accounts.Info {
+	cpy := s.accounts.Copy()
+	
+	final := make(map[storage.Account]accounts.Info)
+	if info, exists := cpy[account]; exists {
+		final[account] = info
+	}
+	
+	return final
+}
+
 // QueryMempoolLength returns the current length of the mempool.
 func (s *State) QueryMempoolLength() int {
 	return s.mempool.Count()
@@ -404,7 +379,7 @@ func (s *State) QueryMempoolLength() int {
 // QueryBlocksByNumber returns the set of blocks based on block numbers.
 // This function reads the blockchain from the disk first.
 func (s *State) QueryBlocksByNumber(from, to uint64) []storage.Block {
-	blocks, err := s.storage.ReadAllBlocks()
+	blocks, err := s.storage.ReadAllBlocks(s.evHandler)
 	if err != nil {
 		return nil
 	}
@@ -424,23 +399,11 @@ func (s *State) QueryBlocksByNumber(from, to uint64) []storage.Block {
 	return out
 }
 
-// QueryAccounts returns a copy of the account informatin by account.
-func (s *State) QueryAccounts(account storage.Account) map[storage.Account]accounts.Info {
-	cpy := s.accounts.Copy()
-	
-	final := make(map[storage.Account]accounts.Info)
-	if info, exists := cpy[account]; exists {
-		final[account] = info
-	}
-	
-	return final
-}
-
 // QueryBlocksByAccount returns the set of blocks by account. If the account
 // is empty, all blocks are returns. This function reads the blockchain
 // from disk first.
 func (s *State) QueryBlocksByAccount(account storage.Account) []storage.Block {
-	blocks, err := s.storage.ReadAllBlocks()
+	blocks, err := s.storage.ReadAllBlocks(s.evHandler)
 	if err != nil {
 		return nil
 	}
@@ -461,18 +424,6 @@ blocks:
 	}
 	
 	return out
-}
-
-// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// validateTransaction takes the signed transaction and validates
-// it has a proper signature and other aspects of the data.
-func (s *State) validateTransaction(signedTx storage.SignedTx) error {
-	if err := signedTx.Validate(); err != nil {
-		return err
-	}
-	
-	return nil
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

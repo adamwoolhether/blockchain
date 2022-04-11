@@ -5,7 +5,6 @@ package storage
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"os"
 	"sync"
 )
@@ -64,15 +63,15 @@ func (str *Storage) Write(block BlockFS) error {
 
 // ReadAllBlocks loads all existing blocks from starts into memory.
 // In a real world situation this would require a lot of memory.
-func (str *Storage) ReadAllBlocks() ([]Block, error) {
+func (str *Storage) ReadAllBlocks(evHandler func(v string, args ...any)) ([]Block, error) {
 	dbFile, err := os.Open(str.dbPath)
 	if err != nil {
 		return nil, err
 	}
 	defer dbFile.Close()
 	
-	var blockNum int
 	var blocks []Block
+	var latestBlock Block
 	scanner := bufio.NewScanner(dbFile)
 	for scanner.Scan() {
 		if err := scanner.Err(); err != nil {
@@ -84,15 +83,12 @@ func (str *Storage) ReadAllBlocks() ([]Block, error) {
 			return nil, err
 		}
 		
-		// Check for tampering. This check isn not production ready, far from it,
-		// but gives an idea of how to chcek for tampering. Merkle trees should
-		// ideally be implemented.
-		if blockFS.Block.Hash() != blockFS.Hash {
-			return nil, fmt.Errorf("block %d has ben changed", blockNum)
+		if _, err := blockFS.Block.ValidateBlock(latestBlock, evHandler); err != nil {
+			return nil, err
 		}
 		
 		blocks = append(blocks, blockFS.Block)
-		blockNum++
+		latestBlock = blockFS.Block
 	}
 	
 	return blocks, nil
