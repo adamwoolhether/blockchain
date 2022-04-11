@@ -89,20 +89,7 @@ func New(cfg Config) (*State, error) {
 	
 	// Create a new accounts value to manage accounts
 	// who transact on the blockchain.
-	accts := accounts.New(gen)
-	
-	// Process the blocks and transactions for each account.
-	for _, block := range blocks {
-		for _, tx := range block.Transactions {
-			// Apply the balance changes based for this transaction.
-			if err := accts.ApplyTx(block.Header.MinerAccount, tx); err != nil {
-				return nil, err
-			}
-		}
-		
-		// Apply the mining reward for this block
-		accts.ApplyMiningReward(block.Header.MinerAccount)
-	}
+	accts := accounts.New(gen, blocks)
 	
 	// Construct a mempool with the specified sort strategy.
 	mpool, err := mempool.New()

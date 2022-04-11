@@ -23,7 +23,7 @@ type Accounts struct {
 }
 
 // New Constructs a new account and applies genesis and block information.
-func New(genesis genesis.Genesis) *Accounts {
+func New(genesis genesis.Genesis, blocks []storage.Block) *Accounts {
 	accts := Accounts{
 		genesis: genesis,
 		info:    make(map[storage.Account]Info),
@@ -31,6 +31,13 @@ func New(genesis genesis.Genesis) *Accounts {
 	
 	for account, balance := range genesis.Balances {
 		accts.info[account] = Info{Balance: balance}
+	}
+	
+	for _, block := range blocks {
+		for _, tx := range block.Transactions {
+			accts.ApplyTx(block.Header.MinerAccount, tx)
+		}
+		accts.ApplyMiningReward(block.Header.MinerAccount)
 	}
 	
 	return &accts
