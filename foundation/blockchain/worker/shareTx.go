@@ -1,4 +1,4 @@
-package state
+package worker
 
 import (
 	"fmt"
@@ -14,21 +14,10 @@ import (
 // shared will not be accepted. This isn't production friendly.
 const maxTxShareRequests = 100
 
-// signalShareTransactions queues up a share transaction operation. If
-// maxTxShareRequests signals exist in the channel, we won't send these.
-func (w *worker) signalShareTransactions(blockTx storage.BlockTx) {
-	select {
-	case w.txSharing <- blockTx:
-		w.evHandler("worker: signalShareTransactions: share Tx signaled")
-	default:
-		w.evHandler("worker: signalShareTransactions: queue full, transactions won't be shared.")
-	}
-}
-
 // shareTxOperations handles sharing new user transactions.
-func (w *worker) shareTxOperations() {
-	w.evHandler("worker: shareTxOperations: G started")
-	defer w.evHandler("worker: shareTxOperations: G completed")
+func (w *Worker) shareTxOperations() {
+	w.evHandler("Worker: shareTxOperations: G started")
+	defer w.evHandler("Worker: shareTxOperations: G completed")
 	
 	for {
 		select {
@@ -37,21 +26,21 @@ func (w *worker) shareTxOperations() {
 				w.runShareTxOperation(tx)
 			}
 		case <-w.shut:
-			w.evHandler("worker: shareTxOperations: received shut signal")
+			w.evHandler("Worker: shareTxOperations: received shut signal")
 			return
 		}
 	}
 }
 
 // runShareTxOperation updates the peer list and sync's up the database.
-func (w *worker) runShareTxOperation(tx storage.BlockTx) {
-	w.evHandler("worker: runShareTxOperation: started")
-	defer w.evHandler("worker: runShareTxOperation: completed")
+func (w *Worker) runShareTxOperation(tx storage.BlockTx) {
+	w.evHandler("Worker: runShareTxOperation: started")
+	defer w.evHandler("Worker: runShareTxOperation: completed")
 	
 	for _, pr := range w.state.RetrieveKnownPeers() {
 		url := fmt.Sprintf("%s/tx/submit", fmt.Sprintf(w.baseURL, pr.Host))
 		if err := send(http.MethodPost, url, tx, nil); err != nil {
-			w.evHandler("worker: runShareTxOperation: WARNING: %s", err)
+			w.evHandler("Worker: runShareTxOperation: WARNING: %s", err)
 		}
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/worker"
 	"github.com/adamwoolhether/blockchain/foundation/events"
 	"github.com/adamwoolhether/blockchain/foundation/logger"
 	"github.com/adamwoolhether/blockchain/foundation/nameservice"
@@ -149,6 +150,8 @@ func run(log *zap.SugaredLogger) error {
 		return err
 	}
 	defer st.Shutdown()
+	
+	worker.Run(st, ev)
 	
 	// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Service Start/Stop Support

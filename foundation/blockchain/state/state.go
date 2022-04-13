@@ -3,7 +3,6 @@
 package state
 
 import (
-	"errors"
 	"sync"
 	
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/accounts"
@@ -13,13 +12,20 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
-// ErrNotEnoughTransactions is returned when a block is requested
-// to be created and there aren't enough transactions.
-var ErrNotEnoughTransactions = errors.New("not enough transactions in mempool")
-
 // EventHandler defines a function that is called
 // when events occur in the processing of persisting blocks.
 type EventHandler func(v string, args ...any)
+
+// Worker interface represents the behavior required to be implemented
+// by any package providing background blockchain processes support.
+type Worker interface {
+	Shutdown()
+	SignalStartMining()
+	SignalCancelMining() (done func())
+	SignalShareTx(blockTx storage.BlockTx)
+}
+
+// /////////////////////////////////////////////////////////////////
 
 // Config represents the configuration requires
 // to start the blockchain node.
@@ -48,7 +54,7 @@ type State struct {
 	latestBlock storage.Block
 	mu          sync.Mutex
 	
-	worker *worker
+	Worker Worker
 }
 
 // New constructs a new blockchain for data management.
@@ -75,7 +81,7 @@ func New(cfg Config) (*State, error) {
 	
 	// Load all existing blocks from storage into memory for processing.
 	// This won't work in a large system like Ethereum!
-	blocks, err := strg.ReadAllBlocks(ev)
+	blocks, err := strg.ReadAllBlocks(ev, true)
 	if err != nil {
 		return nil, err
 	}
@@ -111,8 +117,8 @@ func New(cfg Config) (*State, error) {
 		latestBlock: latestBlock,
 	}
 	
-	// Run the worker which will assign itself to this state.
-	runWorker(&state, cfg.EvHandler)
+	// The Worker is not set here. The call to worker.Run will assign
+	// itself and start everything up and running for the node.
 	
 	return &state, nil
 }
@@ -125,7 +131,7 @@ func (s *State) Shutdown() error {
 	}()
 	
 	// Stop all blockchain writing activity.
-	s.worker.shutdown()
+	s.Worker.Shutdown()
 	
 	return nil
 }
