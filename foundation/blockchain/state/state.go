@@ -17,7 +17,7 @@ import (
 type EventHandler func(v string, args ...any)
 
 // Worker interface represents the behavior required to be implemented
-// by any package providing background blockchain processes support.
+// by any package providing support for mining, peer updates, and tx sharing.
 type Worker interface {
 	Shutdown()
 	SignalStartMining()
