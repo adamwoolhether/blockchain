@@ -159,28 +159,28 @@ func (t *Tree[T]) MerklePath(data T) ([][]byte, []int64, error) {
 // VerifyTree validates the hashes at each level of the tree and
 // returns true if the resulting hash at the root of the tree
 // matches the resulting root hash; returns false if otherwise.
-func (t *Tree[T]) VerifyTree() (bool, error) {
+func (t *Tree[T]) VerifyTree() error {
 	calculatedMerkleRoot, err := t.Root.verifyNode()
 	if err != nil {
-		return false, err
+		return err
 	}
 	
 	if bytes.Equal(t.MerkleRoot, calculatedMerkleRoot) {
-		return true, nil
+		return errors.New("root hash invalid")
 	}
 	
-	return false, nil
+	return nil
 }
 
 // VerifyData indicates if a given piece of data is in the tree and the hashes
 // are still valid for that data. Returns true if the expected Merkle Root is
 // equivalent to the Merkle root calculated on the critical path for that
 // data. Returns true if valid and false otherwise.
-func (t *Tree[T]) VerifyData(data T) (bool, error) {
+func (t *Tree[T]) VerifyData(data T) error {
 	for _, node := range t.Leaves {
 		ok, err := node.Data.Equals(data)
 		if err != nil {
-			return false, err
+			return err
 		}
 		if !ok {
 			continue
@@ -190,30 +190,30 @@ func (t *Tree[T]) VerifyData(data T) (bool, error) {
 		for currentParent != nil {
 			rightBytes, err := currentParent.Right.CalculateNodeHash()
 			if err != nil {
-				return false, err
+				return err
 			}
 			
 			leftBytes, err := currentParent.Left.CalculateNodeHash()
 			if err != nil {
-				return false, err
+				return err
 			}
 			
 			h := t.hashStrategy()
 			if _, err := h.Write(append(leftBytes, rightBytes...)); err != nil {
-				return false, err
+				return err
 			}
 			
 			if !bytes.Equal(h.Sum(nil), currentParent.Hash) {
-				return false, nil
+				return errors.New("markle root is not equivalent to the merkle root calculated on the critical path")
 			}
 			
 			currentParent = currentParent.Parent
 		}
 		
-		return true, nil
+		return nil
 	}
 	
-	return false, nil
+	return errors.New("markle root is not equivalent to the merkle root calculated on the critical path")
 }
 
 // MerkleRootHex provides the hexidecimal encoding of the merkle root.
@@ -295,48 +295,6 @@ func (n *Node[T]) String() string {
 }
 
 // /////////////////////////////////////////////////////////////////
-
-/*// buildWithContent is a helper function that for a given set of data
-// generates a corresponding tree and returns the root node, a list of leaf
-// nodes, and a possible error. Returns an error if there is no data.
-func buildWithContent[T Hashable[T]](data []T, t *Tree[T]) (*Node[T], []*Node[T], error) {
-	if len(data) == 0 {
-		return nil, nil, errors.New("can't construct tree with no content")
-	}
-
-	var leaves []*Node[T]
-	for _, dt := range data {
-		hash, err := dt.Hash()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		leaves = append(leaves, &Node[T]{
-			Hash: hash,
-			Data: dt,
-			leaf: true,
-			Tree: t,
-		})
-	}
-
-	if len(leaves)%2 == 1 {
-		duplicate := &Node[T]{
-			Hash: leaves[len(leaves)-1].Hash,
-			Data: leaves[len(leaves)-1].Data,
-			leaf: true,
-			dup:  true,
-			Tree: t,
-		}
-		leaves = append(leaves, duplicate)
-	}
-
-	root, err := buildIntermediate(leaves, t)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return root, leaves, nil
-}*/
 
 // buildIntermediate is a helper function that for a given list of leaf nodes
 // constructs the intermediate and root levels of the tree. It returns the
