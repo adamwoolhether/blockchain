@@ -78,84 +78,80 @@ func (b Block) Hash() string {
 		return signature.ZeroHash
 	}
 	
-	return signature.Hash(b)
+	// Using the block header because data is smaller for unmarshal
+	// operations and the merkle root will allow validation that no
+	// transaction has been tampered with.
+	
+	return signature.Hash(b.Header)
 }
 
 // ValidateBlock takes a block and validates it to be included into the blockchain.
 func (b Block) ValidateBlock(parentBlock Block, evHandler func(v string, args ...any)) (string, error) {
-	// The node who sent this block has a chain that is two or more blocks ahead.
-	// This means there has been a fork and our block in on the wrong side.
+	evHandler("storage: ValidateBlock: validate: blk[%d]: check: chain is not forked", b.Header.Number)
+	
+	// The node who sent this block has a chain that is two or more blocks ahead
+	// of ours. This means there has been a fork and we are on the wrong side.
 	nextNumber := parentBlock.Header.Number + 1
 	if b.Header.Number >= (nextNumber + 2) {
 		return signature.ZeroHash, ErrChainForked
 	}
 	
-	evHandler("storage: ValidateBlock: validate: blk[%d]: chain is not forked", b.Header.Number)
+	evHandler("storage: ValidateBlock: validate: blk[%d]: check: block difficulty is the same or greater than parent block difficulty", b.Header.Number)
 	
 	if b.Header.Difficulty < parentBlock.Header.Difficulty {
 		return signature.ZeroHash, fmt.Errorf("block difficulty is less than parent block difficulty, parent %d, block %d", parentBlock.Header.Difficulty, b.Header.Difficulty)
 	}
 	
-	evHandler("storage: ValidateBlock: validate: blk[%d]: block difficulty is the same or greater than parent block difficulty", b.Header.Number)
+	evHandler("storage: ValidateBlock: validate: blk[%d]: check: block hash has been solved", b.Header.Number)
 	
 	hash := b.Hash()
 	if !isHashSolved(b.Header.Difficulty, hash) {
-		return signature.ZeroHash, fmt.Errorf("%s invalid hash", hash)
+		return signature.ZeroHash, fmt.Errorf("%s invalid block hash", hash)
 	}
 	
-	evHandler("storage: ValidateBlock: validate: blk[%d]: hash has been solved", b.Header.Number)
-	
-	// The node who sent this block has a chain that is two or more blocks ahead
-	// of ours. This means there has been a fork and we are on the wrong side.
-	if b.Header.Number >= (nextNumber + 2) {
-		return signature.ZeroHash, ErrChainForked
-	}
-	
-	evHandler("state: ValidateBlock: validate: block number")
+	evHandler("storage: ValidateBlock: validate: blk[%d]: check: block number is the next number", b.Header.Number)
 	
 	if b.Header.Number != nextNumber {
 		return signature.ZeroHash, fmt.Errorf("this block is not the next number, got %d, exp %d", b.Header.Number, nextNumber)
 	}
 	
-	evHandler("storage: ValidateBlock: validate: blk[%d]: block number is next number", b.Header.Number)
+	evHandler("storage: ValidateBlock: validate: blk[%d]: check: parent hash does match parent block", b.Header.Number)
 	
 	if b.Header.ParentHash != parentBlock.Hash() {
-		return signature.ZeroHash, fmt.Errorf("prev block doesn't match our latest, got %s, exp %s", b.Header.ParentHash, parentBlock.Hash())
+		return signature.ZeroHash, fmt.Errorf("parent block hash doesn't match our known parent, got %s, exp %s", b.Header.ParentHash, parentBlock.Hash())
 	}
 	
-	evHandler("storage: ValidateBlock: validate: blk[%d]: parent hash does match parent block", b.Header.Number)
-	
 	if parentBlock.Header.TimeStamp > 0 {
+		evHandler("storage: ValidateBlock: validate: blk[%d]: check: block's timestamp is greater than parent block's timestamp", b.Header.Number)
+		
 		parentTime := time.Unix(int64(parentBlock.Header.TimeStamp), 0)
 		blockTime := time.Unix(int64(b.Header.TimeStamp), 0)
 		if !blockTime.After(parentTime) {
 			return signature.ZeroHash, fmt.Errorf("block timestamp is before parent block, parent %s, block %s", parentTime, blockTime)
 		}
 		
-		evHandler("storage: ValidateBlock: validate: blk[%d]: block's timestamp is greater than parent block's timestamp", b.Header.Number)
-		
 		// This is a check that Ethereum does but we can't because we don't run all the time.
+		
+		// evHandler("storage: ValidateBlock: validate: blk[%d]: check: block is less than 15 minutes apart from parent block", b.Header.Number)
 		
 		// dur := blockTime.Sub(parentTime)
 		// if dur.Seconds() > time.Duration(15*time.Second).Seconds() {
 		// 	return signature.ZeroHash, fmt.Errorf("block is older than 15 minutes, duration %v", dur)
 		// }
-		
-		// evHandler("storage: ValidateBlock: validate: blk[%d]: block is less than 15 minutes apart from parent block", b.Header.Number)
 	}
+	
+	evHandler("storage: ValidateBlock: validate: blk[%d]: check: could create merkle tree from transactions", b.Header.Number)
 	
 	tree, err := merkle.NewTree(b.Transactions)
 	if err != nil {
-		return signature.ZeroHash, fmt.Errorf("unable to create merkle tree from transaction, %w", err)
+		return signature.ZeroHash, fmt.Errorf("unable to create merkle tree from transactions, %w", err)
 	}
 	
-	evHandler("storage: ValidateBlock: validate: blk[%d]: could create merkle tree from transactions", b.Header.Number)
+	evHandler("storage: ValidateBlock: validate: blk[%d]: check: merkle root does match transactions", b.Header.Number)
 	
-	if b.Header.MerkleRoot != tree.MerkleRootHex() {
-		return signature.ZeroHash, fmt.Errorf("merkle root does not match transactions, got %s, exp %s", tree.MerkleRootHex(), b.Header.MerkleRoot)
+	if b.Header.MerkleRoot != tree.MerkelRootHex() {
+		return signature.ZeroHash, fmt.Errorf("merkle root does not match transactions, got %s, exp %s", tree.MerkelRootHex(), b.Header.MerkleRoot)
 	}
-	
-	evHandler("storage: ValidateBlock: validate: blk[%d]: merkle root does match transaction", b.Header.Number)
 	
 	return hash, nil
 }
