@@ -11,6 +11,7 @@ package merkle
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"hash"
@@ -215,6 +216,11 @@ func (t *Tree[T]) VerifyData(data T) (bool, error) {
 	return false, nil
 }
 
+// MerkleRootHex provides the hexidecimal encoding of the merkle root.
+func (t *Tree[T]) MerkleRootHex() string {
+	return hex.EncodeToString(t.MerkleRoot)
+}
+
 // String returns a string representation of the tree.
 // Only leaf nodes are included in the output.
 func (t *Tree[T]) String() string {
@@ -339,7 +345,7 @@ func buildIntermediate[T Hashable[T]](nl []*Node[T], t *Tree[T]) (*Node[T], erro
 	var nodes []*Node[T]
 	
 	for i := 0; i < len(nl); i += 2 {
-		var left, right int = i, i + 1
+		left, right := i, i+1
 		if i+1 == len(nl) {
 			right = i
 		}

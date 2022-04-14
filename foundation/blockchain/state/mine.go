@@ -26,9 +26,12 @@ func (s *State) MineNewBlock(ctx context.Context) (storage.Block, time.Duration,
 	
 	s.evHandler("state: MineNewBlock: MINING: create new block: pick %d", s.genesis.TxsPerBlock)
 	
-	// Create a new block which owns it's own copy of the transactions.
+	// Create a new block afterpicking the best transactions currently in the mempool.
 	txs := s.mempool.PickBest(s.genesis.TxsPerBlock)
-	nb := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, s.RetrieveLatestBlock(), txs)
+	nb, err := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.genesis.TxsPerBlock, s.RetrieveLatestBlock(), txs)
+	if err != nil {
+		return storage.Block{}, 0, err
+	}
 	
 	s.evHandler("state: MineNewBlock: MINING: perform POW")
 	

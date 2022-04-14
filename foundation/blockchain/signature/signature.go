@@ -79,7 +79,7 @@ func VerifySignature(value any, v, r, s *big.Int) error {
 	}
 	
 	// Convert the [R|S|V] format into the original 65 bytes.
-	sig := toSignatureBytes(v, r, s)
+	sig := ToSignatureBytes(v, r, s)
 	
 	// Capture the uncompressed public key assiciated with this signature.
 	sigPublicKey, err := crypto.Ecrecover(tx, sig)
@@ -105,7 +105,7 @@ func FromAddress(value any, v, r, s *big.Int) (string, error) {
 	}
 	
 	// Convert the [R|S|V] format into the original 65 bytes.
-	sig := toSignatureBytes(v, r, s)
+	sig := ToSignatureBytes(v, r, s)
 	
 	// Validate the signature since there can be conversion issues between
 	// [R|S|V] to []bytes. Leading 0's are truncated by big package.
@@ -132,7 +132,7 @@ func FromAddress(value any, v, r, s *big.Int) (string, error) {
 
 // SignatureString returns the signature as a string.
 func SignatureString(v, r, s *big.Int) string {
-	return "0x" + hex.EncodeToString(toSignatureBytesWithArdanID(v, r, s))
+	return "0x" + hex.EncodeToString(ToSignatureBytesWithArdanID(v, r, s))
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -171,9 +171,9 @@ func toSignatureValues(sig []byte) (v, r, s *big.Int) {
 	return v, r, s
 }
 
-// toSignatureBytes converts the r, s, v values into a slice of bytes
+// ToSignatureBytes converts the r, s, v values into a slice of bytes
 // with the removal of the ardanID.
-func toSignatureBytes(v, r, s *big.Int) []byte {
+func ToSignatureBytes(v, r, s *big.Int) []byte {
 	sig := make([]byte, crypto.SignatureLength)
 	
 	rBytes := r.Bytes()
@@ -195,10 +195,10 @@ func toSignatureBytes(v, r, s *big.Int) []byte {
 	return sig
 }
 
-// toSignatureBytesWithArdanID converts the r, s, v values into a slice
+// ToSignatureBytesWithArdanID converts the r, s, v values into a slice
 // of bytes keeping the ArdanID.
-func toSignatureBytesWithArdanID(v, r, s *big.Int) []byte {
-	sig := toSignatureBytes(v, r, s)
+func ToSignatureBytesWithArdanID(v, r, s *big.Int) []byte {
+	sig := ToSignatureBytes(v, r, s)
 	sig[64] = byte(v.Uint64())
 	
 	return sig
