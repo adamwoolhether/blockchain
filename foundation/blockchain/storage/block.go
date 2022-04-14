@@ -149,8 +149,8 @@ func (b Block) ValidateBlock(parentBlock Block, evHandler func(v string, args ..
 	
 	evHandler("storage: ValidateBlock: validate: blk[%d]: check: merkle root does match transactions", b.Header.Number)
 	
-	if b.Header.MerkleRoot != tree.MerkelRootHex() {
-		return signature.ZeroHash, fmt.Errorf("merkle root does not match transactions, got %s, exp %s", tree.MerkelRootHex(), b.Header.MerkleRoot)
+	if b.Header.MerkleRoot != tree.MerkleRootHex() {
+		return signature.ZeroHash, fmt.Errorf("merkle root does not match transactions, got %s, exp %s", tree.MerkleRootHex(), b.Header.MerkleRoot)
 	}
 	
 	return hash, nil
