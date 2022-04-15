@@ -23,19 +23,11 @@ func (s *State) MineNewBlock(ctx context.Context) (storage.Block, error) {
 		return storage.Block{}, ErrNotEnoughTransactions
 	}
 	
-	s.evHandler("state: MineNewBlock: MINING: create new block: pick %d", s.genesis.TxsPerBlock)
-	
-	// Create a new block afterpicking the best transactions currently in the mempool.
-	txs := s.mempool.PickBest(s.genesis.TxsPerBlock)
-	nb, err := storage.NewBlock(s.minerAccount, s.genesis.Difficulty, s.RetrieveLatestBlock(), txs)
-	if err != nil {
-		return storage.Block{}, err
-	}
-	
 	s.evHandler("state: MineNewBlock: MINING: perform POW")
 	
 	// Attempt to create a new BlockFS by solving the POW puzzle. This can be cancelled.
-	hash, err := nb.PerformPOW(ctx, s.genesis.Difficulty, s.evHandler)
+	tx := s.mempool.PickBest(s.genesis.TxsPerBlock)
+	block, err := storage.POW(ctx, s.minerAccount, s.genesis.Difficulty, s.RetrieveLatestBlock(), tx, s.evHandler)
 	if err != nil {
 		return storage.Block{}, err
 	}
@@ -47,11 +39,11 @@ func (s *State) MineNewBlock(ctx context.Context) (storage.Block, error) {
 	
 	s.evHandler("state: MineNewBlock: MINING: update local state")
 	
-	if err := s.updateLocalState(hash, nb); err != nil {
+	if err := s.updateLocalState(block); err != nil {
 		return storage.Block{}, err
 	}
 	
-	return nb, nil
+	return block, nil
 }
 
 // MinePeerBlock takes a block received from  a peer, validates
@@ -70,24 +62,23 @@ func (s *State) MinePeerBlock(block storage.Block) error {
 		done()
 	}()
 	
-	hash, err := block.ValidateBlock(s.latestBlock, s.evHandler)
-	if err != nil {
+	if err := block.ValidateBlock(s.latestBlock, s.evHandler); err != nil {
 		return err
 	}
 	
-	return s.updateLocalState(hash, block)
+	return s.updateLocalState(block)
 }
 
 // updateLocalState takes the blockFS and updates the current state of
 // the chain, including adding the block to disk.
-func (s *State) updateLocalState(hash string, block storage.Block) error {
+func (s *State) updateLocalState(block storage.Block) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	
 	s.evHandler("state: updateLocalState: write to disk")
 	
 	// Write the new block to the chain on disk.
-	if err := s.storage.Write(storage.NewBlockFS(hash, block)); err != nil {
+	if err := s.storage.Write(storage.NewBlockFS(block)); err != nil {
 		return err
 	}
 	s.latestBlock = block
