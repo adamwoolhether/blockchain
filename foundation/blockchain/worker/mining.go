@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 	
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
@@ -101,7 +102,10 @@ func (w *Worker) runMiningOperation() {
 			wg.Done()
 		}()
 		
-		block, duration, err := w.state.MineNewBlock(ctx)
+		t := time.Now()
+		block, err := w.state.MineNewBlock(ctx)
+		duration := time.Since(t)
+		
 		w.evHandler("Worker: runMiningOperation: MINING: mining duration[%v]", duration)
 		
 		if err != nil {

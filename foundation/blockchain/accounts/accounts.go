@@ -34,8 +34,8 @@ func New(genesis genesis.Genesis, blocks []storage.Block) *Accounts {
 	}
 	
 	for _, block := range blocks {
-		for _, tx := range block.Transactions {
-			accts.ApplyTx(block.Header.MinerAccount, tx)
+		for _, tx := range block.Transactions.Leaves {
+			accts.ApplyTx(block.Header.MinerAccount, tx.Value)
 		}
 		accts.ApplyMiningReward(block.Header.MinerAccount)
 	}

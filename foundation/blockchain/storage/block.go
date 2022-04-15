@@ -30,12 +30,12 @@ type BlockHeader struct {
 
 // Block struct represents a grup of transactions batched together.
 type Block struct {
-	Header       BlockHeader `json:"header"`
-	Transactions []BlockTx   `json:"transactions"`
+	Header       BlockHeader
+	Transactions *merkle.Tree[BlockTx]
 }
 
-// NewBlock constructs a new BlockFS for persisting data.
-func NewBlock(minerAccount Account, difficulty, txPerBlock int, parentBlock Block, txs []BlockTx) (Block, error) {
+// NewBlock constructs a new Block binding transactions and a Merkle tree.
+func NewBlock(minerAccount Account, difficulty int, parentBlock Block, txs []BlockTx) (Block, error) {
 	parentHash := signature.ZeroHash
 	if parentBlock.Header.Number > 0 {
 		parentHash = parentBlock.Hash()
@@ -55,7 +55,22 @@ func NewBlock(minerAccount Account, difficulty, txPerBlock int, parentBlock Bloc
 			MerkleRoot:   tree.MerkleRootHex(),
 			TimeStamp:    uint64(time.Now().UTC().Unix()),
 		},
-		Transactions: txs,
+		Transactions: tree,
+	}
+	
+	return nb, nil
+}
+
+// ToBlock converts a BlockFS into a Block.
+func ToBlock(blockFS BlockFS) (Block, error) {
+	tree, err := merkle.NewTree(blockFS.Txs)
+	if err != nil {
+		return Block{}, err
+	}
+	
+	nb := Block{
+		Header:       blockFS.Block,
+		Transactions: tree,
 	}
 	
 	return nb, nil
@@ -125,42 +140,33 @@ func (b Block) ValidateBlock(parentBlock Block, evHandler func(v string, args ..
 		
 		// dur := blockTime.Sub(parentTime)
 		// if dur.Seconds() > time.Duration(15*time.Second).Seconds() {
-		// 	return signature.ZeroHash, fmt.Errorf("block is older than 15 minutes, duration %v", dur)
+		// 	return signature.ZeroHash, nil, fmt.Errorf("block is older than 15 minutes, duration %v", dur)
 		// }
-	}
-	
-	evHandler("storage: ValidateBlock: validate: blk[%d]: check: could create merkle tree from transactions", b.Header.Number)
-	
-	tree, err := merkle.NewTree(b.Transactions)
-	if err != nil {
-		return signature.ZeroHash, fmt.Errorf("unable to create merkle tree from transactions, %w", err)
 	}
 	
 	evHandler("storage: ValidateBlock: validate: blk[%d]: check: merkle root does match transactions", b.Header.Number)
 	
-	if b.Header.MerkleRoot != tree.MerkleRootHex() {
-		return signature.ZeroHash, fmt.Errorf("merkle root does not match transactions, got %s, exp %s", tree.MerkleRootHex(), b.Header.MerkleRoot)
+	if b.Header.MerkleRoot != b.Transactions.MerkleRootHex() {
+		return signature.ZeroHash, fmt.Errorf("merkle root does not match transactions, got %s, exp %s", b.Transactions.MerkleRootHex(), b.Header.MerkleRoot)
 	}
 	
 	return hash, nil
 }
 
 // PerformPOW does the work of mining to find a valid hash for a
-// specified block and returns a BlockFS ready to be written to disk.
-func (b Block) PerformPOW(ctx context.Context, difficulty int, ev func(v string, args ...any)) (BlockFS, time.Duration, error) {
+// specified. Pointer semantics used since a nonce is being discovered.
+func (b *Block) PerformPOW(ctx context.Context, difficulty int, ev func(v string, args ...any)) (string, error) {
 	ev("worker: PerformPOW: MINING: started")
 	defer ev("worker: PerformPOW: MINING: completed")
 	
-	for _, tx := range b.Transactions {
-		ev("worker: PerformPOW: MINING: tx[%s]", tx)
+	for _, tx := range b.Transactions.Leaves {
+		ev("worker: PerformPOW: MINING: tx[%s]", tx.Value)
 	}
-	
-	t := time.Now()
 	
 	// Choose a random starting point for the nonce.
 	nBig, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	if err != nil {
-		return BlockFS{}, time.Since(t), ctx.Err()
+		return "", ctx.Err()
 	}
 	b.Header.Nonce = nBig.Uint64()
 	
@@ -174,7 +180,7 @@ func (b Block) PerformPOW(ctx context.Context, difficulty int, ev func(v string,
 		// Did we timeout trying to solve the problem.
 		if ctx.Err() != nil {
 			ev("worker: PerformPOW: MINING: CANCELLED")
-			return BlockFS{}, time.Since(t), ctx.Err()
+			return "", ctx.Err()
 		}
 		
 		// Hash the block and check if we have solved the puzzle.
@@ -187,19 +193,13 @@ func (b Block) PerformPOW(ctx context.Context, difficulty int, ev func(v string,
 		// Did we timeout trying to solve the problem.
 		if ctx.Err() != nil {
 			ev("worker: PerformPOW: MINING: CANCELLED")
-			return BlockFS{}, time.Since(t), ctx.Err()
+			return "", ctx.Err()
 		}
 		
 		ev("worker: PerformPOW: MINING: SOLVED: prevBlk[%s]: newBlk[%s]", b.Header.ParentHash, hash)
 		ev("worker: PerformPOW: MINING: attempts[%d]", attempts)
 		
-		// We found a solution to the POW.
-		bfs := BlockFS{
-			Hash:  hash,
-			Block: b,
-		}
-		
-		return bfs, time.Since(t), nil
+		return hash, nil
 	}
 }
 
@@ -219,6 +219,23 @@ func isHashSolved(difficulty int, hash string) bool {
 
 // BlockFS represents what is written to the DB file.
 type BlockFS struct {
-	Hash  string
-	Block Block
+	Hash  string      `json:"hash"`
+	Block BlockHeader `json:"block"`
+	Txs   []BlockTx   `json:"txs"`
+}
+
+// NewBlockFS constructs the value to serialize to disk.
+func NewBlockFS(hash string, block Block) BlockFS {
+	txs := make([]BlockTx, len(block.Transactions.Leaves))
+	for i, tx := range block.Transactions.Leaves {
+		txs[i] = tx.Value
+	}
+	
+	bfs := BlockFS{
+		Hash:  hash,
+		Block: block.Header,
+		Txs:   txs,
+	}
+	
+	return bfs
 }

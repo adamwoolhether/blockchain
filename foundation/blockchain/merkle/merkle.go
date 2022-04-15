@@ -65,33 +65,33 @@ func NewTree[T Hashable[T]](data []T, options ...func(t *Tree[T])) (*Tree[T], er
 // GenerateTree constructs the leaves and nodes of the tree from the specified
 // data. If the tree has been previously generated, it is re-generated
 // from scratch.
-func (t *Tree[T]) GenerateTree(data []T) error {
-	if len(data) == 0 {
+func (t *Tree[T]) GenerateTree(values []T) error {
+	if len(values) == 0 {
 		return errors.New("can't construct tree with no data")
 	}
 	
 	var leaves []*Node[T]
-	for _, dt := range data {
-		hash, err := dt.Hash()
+	for _, value := range values {
+		hash, err := value.Hash()
 		if err != nil {
 			return err
 		}
 		
 		leaves = append(leaves, &Node[T]{
-			Hash: hash,
-			Data: dt,
-			leaf: true,
-			Tree: t,
+			Hash:  hash,
+			Value: value,
+			leaf:  true,
+			Tree:  t,
 		})
 	}
 	
 	if len(leaves)%2 == 1 {
 		duplicate := &Node[T]{
-			Hash: leaves[len(leaves)-1].Hash,
-			Data: leaves[len(leaves)-1].Data,
-			leaf: true,
-			dup:  true,
-			Tree: t,
+			Hash:  leaves[len(leaves)-1].Hash,
+			Value: leaves[len(leaves)-1].Value,
+			leaf:  true,
+			dup:   true,
+			Tree:  t,
 		}
 		leaves = append(leaves, duplicate)
 	}
@@ -113,7 +113,7 @@ func (t *Tree[T]) GenerateTree(data []T) error {
 func (t *Tree[T]) RebuildTree() error {
 	var data []T
 	for _, node := range t.Leaves {
-		data = append(data, node.Data)
+		data = append(data, node.Value)
 	}
 	
 	if err := t.GenerateTree(data); err != nil {
@@ -127,7 +127,7 @@ func (t *Tree[T]) RebuildTree() error {
 // // for the specified data.
 func (t *Tree[T]) MerklePath(data T) ([][]byte, []int64, error) {
 	for _, node := range t.Leaves {
-		if !node.Data.Equals(data) {
+		if !node.Value.Equals(data) {
 			continue
 		}
 		
@@ -174,7 +174,7 @@ func (t *Tree[T]) VerifyTree() error {
 // data. Returns true if valid and false otherwise.
 func (t *Tree[T]) VerifyData(data T) error {
 	for _, node := range t.Leaves {
-		if !node.Data.Equals(data) {
+		if !node.Value.Equals(data) {
 			continue
 		}
 		
@@ -237,7 +237,7 @@ type Node[T Hashable[T]] struct {
 	Left   *Node[T]
 	Right  *Node[T]
 	Hash   []byte
-	Data   T
+	Value  T
 	leaf   bool
 	dup    bool
 }
@@ -246,7 +246,7 @@ type Node[T Hashable[T]] struct {
 // hash at each level and returning the resulting hash of the Node.
 func (n *Node[T]) verifyNode() ([]byte, error) {
 	if n.leaf {
-		return n.Data.Hash()
+		return n.Value.Hash()
 	}
 	
 	rightBytes, err := n.Right.verifyNode()
@@ -270,7 +270,7 @@ func (n *Node[T]) verifyNode() ([]byte, error) {
 // CalculateNodeHash is a helper function that calculates the hash of the node.
 func (n *Node[T]) CalculateNodeHash() ([]byte, error) {
 	if n.leaf {
-		return n.Data.Hash()
+		return n.Value.Hash()
 	}
 	
 	h := n.Tree.hashStrategy()
@@ -283,7 +283,7 @@ func (n *Node[T]) CalculateNodeHash() ([]byte, error) {
 
 // String returns a string representation of the node.
 func (n *Node[T]) String() string {
-	return fmt.Sprintf("%t %t %v %v", n.leaf, n.dup, n.Hash, n.Data)
+	return fmt.Sprintf("%t %t %v %v", n.leaf, n.dup, n.Hash, n.Value)
 }
 
 // /////////////////////////////////////////////////////////////////
