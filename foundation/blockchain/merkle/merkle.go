@@ -213,6 +213,23 @@ func (t *Tree[T]) MerkleRootHex() string {
 	return hex.EncodeToString(t.MerkleRoot)
 }
 
+// Values returns a slice of unique values stores in the tree. The last
+// value in the tree might be duplicate when there are an odd number
+// of actual values.
+func (t *Tree[T]) Values() []T {
+	var values []T
+	for _, tx := range t.Leaves {
+		values = append(values, tx.Value)
+	}
+	
+	l := len(t.Leaves)
+	if bytes.Equal(t.Leaves[l-1].Hash, t.Leaves[l-2].Hash) {
+		return values[:l-1]
+	}
+	
+	return values
+}
+
 // String returns a string representation of the tree.
 // Only leaf nodes are included in the output.
 func (t *Tree[T]) String() string {

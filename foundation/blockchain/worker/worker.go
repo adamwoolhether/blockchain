@@ -125,7 +125,7 @@ func (w *Worker) SignalCancelMining() (done func()) {
 	case w.cancelMining <- wait:
 	default:
 	}
-	w.evHandler("Worker: SignalCancelMining: cancel mining signaled")
+	w.evHandler("Worker: SignalCancelMining: MINING: CANCEL: signaled")
 	
 	return func() { close(wait) }
 }

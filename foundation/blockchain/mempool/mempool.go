@@ -3,6 +3,7 @@ package mempool
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool/selector"
@@ -45,18 +46,18 @@ func (mp *Mempool) Count() int {
 }
 
 // Upsert adds or replaces a transaction from the mempool.
-func (mp *Mempool) Upsert(tx storage.BlockTx) (int, error) {
+func (mp *Mempool) Upsert(tx storage.BlockTx) error {
 	mp.mu.RLock()
 	defer mp.mu.RUnlock()
 	
 	key, err := mapKey(tx)
 	if err != nil {
-		return 0, nil
+		return nil
 	}
 	
 	mp.pool[key] = tx
 	
-	return len(mp.pool), nil
+	return nil
 }
 
 // Delete removes a transaction from the mempool.
@@ -90,19 +91,29 @@ func (mp *Mempool) Copy() []storage.BlockTx {
 
 // PickBest uses the configured sort strategy to return the next
 // set of transactions for the next bock.
-func (mp *Mempool) PickBest(howMany int) []storage.BlockTx {
-	mp.mu.RLock()
-	defer mp.mu.RUnlock()
-	
-	cpy := []storage.BlockTx{}
-	for _, tx := range mp.pool {
-		cpy = append(cpy, tx)
-		if len(cpy) == howMany {
-			break
-		}
+func (mp *Mempool) PickBest(howMany ...int) []storage.BlockTx {
+	number := -1
+	if len(howMany) > 0 {
+		number = howMany[0]
 	}
 	
-	return cpy
+	// Copy all the transactions for each account
+	// into separate slices for each account.
+	m := make(map[storage.Account][]storage.BlockTx)
+	mp.mu.RLock()
+	{
+		if number == -1 {
+			number = len(mp.pool)
+		}
+		
+		for key, tx := range mp.pool {
+			account := accountFromMapKey(key)
+			m[account] = append(m[account], tx)
+		}
+	}
+	mp.mu.RUnlock()
+	
+	return mp.selectFn(m, number)
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -113,4 +124,9 @@ func mapKey(tx storage.BlockTx) (string, error) {
 	}
 	
 	return fmt.Sprintf("%s:%d", account, tx.Nonce), nil
+}
+
+// accountFromMapKey extracts the account information from mapkey.
+func accountFromMapKey(key string) storage.Account {
+	return storage.Account(strings.Split(key, ":")[0])
 }

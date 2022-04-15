@@ -72,8 +72,8 @@ func (b *Block) PerformPOW(ctx context.Context, ev func(v string, args ...any)) 
 	ev("worker: PerformPOW: MINING: started")
 	defer ev("worker: PerformPOW: MINING: completed")
 	
-	for _, tx := range b.Transactions.Leaves {
-		ev("worker: PerformPOW: MINING: tx[%s]", tx.Value)
+	for _, tx := range b.Transactions.Values() {
+		ev("worker: PerformPOW: MINING: tx[%s]", tx)
 	}
 	
 	// Choose a random starting point for the nonce.
@@ -216,15 +216,10 @@ type BlockFS struct {
 
 // NewBlockFS constructs the value to serialize to disk.
 func NewBlockFS(block Block) BlockFS {
-	txs := make([]BlockTx, len(block.Transactions.Leaves))
-	for i, tx := range block.Transactions.Leaves {
-		txs[i] = tx.Value
-	}
-	
 	bfs := BlockFS{
 		Hash:  block.Hash(),
 		Block: block.Header,
-		Txs:   txs,
+		Txs:   block.Transactions.Values(),
 	}
 	
 	return bfs
