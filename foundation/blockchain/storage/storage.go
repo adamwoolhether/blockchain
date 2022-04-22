@@ -40,6 +40,28 @@ func (str *Storage) Close() {
 	str.dbFile.Close()
 }
 
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Reset creates a new storage area for the blockchain to start new.
+func (str *Storage) Reset() error {
+	str.mu.Lock()
+	defer str.mu.Unlock()
+	
+	// Close and remove the current file.
+	str.dbFile.Close()
+	os.Remove(str.dbPath)
+	
+	// Open a new blockchain database file with create.
+	dbFile, err := os.OpenFile(str.dbPath, os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return err
+	}
+	
+	str.dbFile = dbFile
+	
+	return nil
+}
+
 // Write adds a new block to the chain.
 func (str *Storage) Write(block BlockFS) error {
 	str.mu.Lock()

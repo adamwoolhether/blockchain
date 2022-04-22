@@ -35,6 +35,18 @@ load:
 	go run app/wallet/cli/main.go send nikki --to "0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5" --nonce 2 --value 200 --tip 15
 	go run app/wallet/cli/main.go send adam --to "0x118947E5266BF8Cd2E730b22f5E66a7868C6DBbC" --nonce 3 --value 100 --tip 15
 	go run app/wallet/cli/main.go send adam --to "0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5" --nonce 4 --value 230 --tip 15
+	go run app/wallet/cli/main.go send adam --to "0x26814dA49253798250D6c00270f2A8A6BC0424b7" --nonce 5 --value 450 --tip 15
+	go run app/wallet/cli/main.go send nikki --to "0x26814dA49253798250D6c00270f2A8A6BC0424b7" --nonce 6 --value 200 --tip 15
+
+load2:
+	go run app/wallet/cli/main.go send adam --to "0xA211f66bD829205102c33cAD3A212D7CaD66025D" --nonce 1 --value 450 --tip 15
+	go run app/wallet/cli/main.go send nikki --to "0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5" --nonce 2 --value 200 --tip 15
+
+load3:
+	go run app/wallet/cli/main.go send adam --to "0x118947E5266BF8Cd2E730b22f5E66a7868C6DBbC" --nonce 3 --value 100 --tip 15
+	go run app/wallet/cli/main.go send adam --to "0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5" --nonce 4 --value 230 --tip 15
+	go run app/wallet/cli/main.go send adam --to "0x26814dA49253798250D6c00270f2A8A6BC0424b7" --nonce 5 --value 450 --tip 15
+	go run app/wallet/cli/main.go send nikki --to "0x26814dA49253798250D6c00270f2A8A6BC0424b7" --nonce 6 --value 200 --tip 15
 
 # ######################################################################################################################
 # Modules support
