@@ -17,12 +17,14 @@ type Info struct {
 
 // Database manages data related to database who have transacted on the blockchain.
 type Database struct {
-	genesis genesis.Genesis
-	records map[storage.Account]Info
-	mu      sync.RWMutex
+	mu          sync.RWMutex
+	genesis     genesis.Genesis
+	latestBlock storage.Block
+	records     map[storage.Account]Info
 }
 
-// New Constructs a new account and applies genesis and block information.
+// New Constructs a new account and applies genesis and block information
+// with any provided blocks.
 func New(genesis genesis.Genesis, blocks []storage.Block) *Database {
 	db := Database{
 		genesis: genesis,
@@ -31,6 +33,10 @@ func New(genesis genesis.Genesis, blocks []storage.Block) *Database {
 	
 	for account, balance := range genesis.Balances {
 		db.records[account] = Info{Balance: balance}
+	}
+	
+	if len(blocks) > 0 {
+		db.latestBlock = blocks[len(blocks)-1]
 	}
 	
 	for _, block := range blocks {
@@ -48,6 +54,7 @@ func (db *Database) Reset() {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	
+	db.latestBlock = storage.Block{}
 	db.records = make(map[storage.Account]Info)
 	for account, balance := range db.genesis.Balances {
 		db.records[account] = Info{Balance: balance}
@@ -151,4 +158,20 @@ func (db *Database) ApplyTx(minerAccount storage.Account, tx storage.BlockTx) er
 		db.records[minerAccount] = minerInfo
 	}
 	return nil
+}
+
+// UpdateLatestBlock provides safe access to update the latest block.
+func (db *Database) UpdateLatestBlock(block storage.Block) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	
+	db.latestBlock = block
+}
+
+// LatestBlock returns the latest block.
+func (db *Database) LatestBlock() storage.Block {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	
+	return db.latestBlock
 }

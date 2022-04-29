@@ -47,7 +47,6 @@ type State struct {
 	host         string
 	dbPath       string
 	evHandler    EventHandler
-	latestBlock  storage.Block
 	
 	allowMining bool
 	resyncWG    sync.WaitGroup
@@ -83,21 +82,14 @@ func New(cfg Config) (*State, error) {
 		return nil, err
 	}
 	
-	// Load all existing blocks from storage into memory for processing.
-	// This won't work in a large system like Ethereum!
+	// Read all the blocks from disk. This wouldn't work
+	// in a real blockchain like Ethereum.
 	blocks, err := strg.ReadAllBlocks(ev, true)
 	if err != nil {
 		return nil, err
 	}
 	
-	// Keep the latest blocks from the blockchain.
-	var latestBlock storage.Block
-	if len(blocks) > 0 {
-		latestBlock = blocks[len(blocks)-1]
-	}
-	
-	// Create a new database to manage accounts who transact on
-	// the blockchain and apply the genesis info and blocks.
+	// Create a new database and set state for all the accounts.
 	db := database.New(gen, blocks)
 	
 	// Construct a mempool with the specified sort strategy.
@@ -112,7 +104,6 @@ func New(cfg Config) (*State, error) {
 		host:         cfg.Host,
 		dbPath:       cfg.DBPath,
 		evHandler:    ev,
-		latestBlock:  latestBlock,
 		allowMining:  true,
 		
 		knownPeers: cfg.KnownPeers,
@@ -152,6 +143,7 @@ func (s *State) Shutdown() error {
 func (s *State) IsMiningAllowed() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	
 	return s.allowMining
 }
 
@@ -159,6 +151,7 @@ func (s *State) IsMiningAllowed() bool {
 func (s *State) TurnMiningOn() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	
 	s.allowMining = true
 }
 
@@ -174,7 +167,6 @@ func (s *State) Resync() error {
 	
 	// Reset the state of the blockchain node.
 	s.db.Reset()
-	s.latestBlock = storage.Block{}
 	s.storage.Reset()
 	
 	// Resync the state of the blockchain.

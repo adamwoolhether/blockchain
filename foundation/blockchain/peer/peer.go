@@ -33,8 +33,8 @@ type Status struct {
 
 // Set represents the data representation to maintain a set of know peers.
 type Set struct {
-	set map[Peer]struct{}
 	mu  sync.RWMutex
+	set map[Peer]struct{}
 }
 
 // NewSet constructs a new info set to manage node peer information.

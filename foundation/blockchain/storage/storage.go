@@ -11,9 +11,9 @@ import (
 
 // Storage manages reading and writing of blocks to storage.
 type Storage struct {
+	mu     sync.Mutex
 	dbPath string
 	dbFile *os.File
-	mu     sync.Mutex
 }
 
 // New provides access to blockchain storage.
@@ -39,8 +39,6 @@ func (str *Storage) Close() {
 	
 	str.dbFile.Close()
 }
-
-// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Reset creates a new storage area for the blockchain to start new.
 func (str *Storage) Reset() error {
@@ -80,8 +78,6 @@ func (str *Storage) Write(block BlockFS) error {
 	
 	return nil
 }
-
-// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ReadAllBlocks loads all existing blocks from starts into memory.
 // In a real world situation this would require a lot of memory.
