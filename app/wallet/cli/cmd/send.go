@@ -55,7 +55,7 @@ func runSend(user string) error {
 		return err
 	}
 	
-	toAccount, err := storage.ToAccount(to)
+	toAccount, err := storage.ToAccountID(to)
 	if err != nil {
 		return err
 	}

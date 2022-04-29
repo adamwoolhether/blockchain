@@ -19,13 +19,13 @@ var ErrChainForked = errors.New("blockchain forked, start resync")
 
 // BlockHeader represents common information required for each block.
 type BlockHeader struct {
-	ParentHash   string  `json:"parent_hash"`   // Hash of the previous block in the chain.
-	MinerAccount Account `json:"miner_account"` // The account of the miner who mined the block.
-	Difficulty   int     `json:"difficulty"`    // Number of 0's needed to solve the hash solution.
-	Number       uint64  `json:"number"`        // The block number in the chain.
-	MerkleRoot   string  `json:"merkle_root"`   // Represents the merkle tree root hash for the transactions in this block.
-	TimeStamp    uint64  `json:"time_stamp"`    // Time the block was mined.
-	Nonce        uint64  `json:"nonce"`         // Value identified to solve the hash solution.
+	ParentHash     string    `json:"parent_hash"`   // Hash of the previous block in the chain.
+	MinerAccountID AccountID `json:"miner_account"` // The account of the miner who mined the block.
+	Difficulty     int       `json:"difficulty"`    // Number of 0's needed to solve the hash solution.
+	Number         uint64    `json:"number"`        // The block number in the chain.
+	MerkleRoot     string    `json:"merkle_root"`   // Represents the merkle tree root hash for the transactions in this block.
+	TimeStamp      uint64    `json:"time_stamp"`    // Time the block was mined.
+	Nonce          uint64    `json:"nonce"`         // Value identified to solve the hash solution.
 }
 
 // Block struct represents a grup of transactions batched together.
@@ -36,7 +36,7 @@ type Block struct {
 
 // POW constructs a new Block and performs the work to find a nonce that
 // solves the cryptographic POW puzzle.
-func POW(ctx context.Context, minerAccount Account, difficulty int, parentBlock Block, txs []BlockTx, evHandler func(v string, args ...any)) (Block, error) {
+func POW(ctx context.Context, minerAccount AccountID, difficulty int, parentBlock Block, txs []BlockTx, evHandler func(v string, args ...any)) (Block, error) {
 	parentHash := signature.ZeroHash
 	if parentBlock.Header.Number > 0 {
 		parentHash = parentBlock.Hash()
@@ -49,12 +49,12 @@ func POW(ctx context.Context, minerAccount Account, difficulty int, parentBlock 
 	
 	nb := Block{
 		Header: BlockHeader{
-			ParentHash:   parentHash,
-			MinerAccount: minerAccount,
-			Difficulty:   difficulty,
-			Number:       parentBlock.Header.Number + 1,
-			MerkleRoot:   tree.MerkleRootHex(),
-			TimeStamp:    uint64(time.Now().UTC().Unix()),
+			ParentHash:     parentHash,
+			MinerAccountID: minerAccount,
+			Difficulty:     difficulty,
+			Number:         parentBlock.Header.Number + 1,
+			MerkleRoot:     tree.MerkleRootHex(),
+			TimeStamp:      uint64(time.Now().UTC().Unix()),
 		},
 		Transactions: tree,
 	}

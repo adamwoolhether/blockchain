@@ -27,7 +27,7 @@ func (s *State) MineNewBlock(ctx context.Context) (storage.Block, error) {
 	
 	// Attempt to create a new BlockFS by solving the POW puzzle. This can be cancelled.
 	tx := s.mempool.PickBest()
-	block, err := storage.POW(ctx, s.minerAccount, s.genesis.Difficulty, s.RetrieveLatestBlock(), tx, s.evHandler)
+	block, err := storage.POW(ctx, s.minerAccountID, s.genesis.Difficulty, s.RetrieveLatestBlock(), tx, s.evHandler)
 	if err != nil {
 		return storage.Block{}, err
 	}
@@ -78,7 +78,7 @@ func (s *State) updateLocalState(block storage.Block) error {
 	s.evHandler("state: updateLocalState: write to disk")
 	
 	// Write the new block to the chain on disk.
-	if err := s.storage.Write(storage.NewBlockFS(block)); err != nil {
+	if err := s.db.Write(storage.NewBlockFS(block)); err != nil {
 		return err
 	}
 	s.db.UpdateLatestBlock(block)
@@ -90,7 +90,7 @@ func (s *State) updateLocalState(block storage.Block) error {
 		s.evHandler("state: updateLocalState: tx[%s] update and remove", tx)
 		
 		// Apply the balance changes based on this transaction.
-		if err := s.db.ApplyTx(block.Header.MinerAccount, tx); err != nil {
+		if err := s.db.ApplyTx(block.Header.MinerAccountID, tx); err != nil {
 			s.evHandler("state: updateLocalState: WARNING : %s", err)
 			continue
 		}
@@ -102,7 +102,7 @@ func (s *State) updateLocalState(block storage.Block) error {
 	s.evHandler("state: updateLocalState: apply mining reward")
 	
 	// Apply the mining reward for this block.
-	s.db.ApplyMiningReward(block.Header.MinerAccount)
+	s.db.ApplyMiningReward(block.Header.MinerAccountID)
 	
 	return nil
 }

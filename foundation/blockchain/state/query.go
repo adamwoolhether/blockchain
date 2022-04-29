@@ -11,14 +11,14 @@ import (
 const QueryLatest = ^uint64(0) >> 1
 
 // QueryDatabaseRecord returns a copy of the database record for the specified account.
-func (s *State) QueryDatabaseRecord(account storage.Account) (database.Info, error) {
+func (s *State) QueryDatabaseRecord(account storage.AccountID) (database.Account, error) {
 	records := s.db.CopyRecords()
 	
 	if info, exists := records[account]; exists {
 		return info, nil
 	}
 	
-	return database.Info{}, errors.New("not found")
+	return database.Account{}, errors.New("not found")
 }
 
 // QueryMempoolLength returns the current length of the mempool.
@@ -29,7 +29,7 @@ func (s *State) QueryMempoolLength() int {
 // QueryBlocksByNumber returns the set of blocks based on block numbers.
 // This function reads the blockchain from the disk first.
 func (s *State) QueryBlocksByNumber(from, to uint64) []storage.Block {
-	blocks, err := s.storage.ReadAllBlocks(s.evHandler, false)
+	blocks, err := s.db.ReadAllBlocks(s.evHandler, false)
 	if err != nil {
 		return []storage.Block{}
 	}
@@ -52,8 +52,8 @@ func (s *State) QueryBlocksByNumber(from, to uint64) []storage.Block {
 // QueryBlocksByAccount returns the set of blocks by account. If the account
 // is empty, all blocks are returns. This function reads the blockchain
 // from disk first.
-func (s *State) QueryBlocksByAccount(account storage.Account) []storage.Block {
-	blocks, err := s.storage.ReadAllBlocks(s.evHandler, false)
+func (s *State) QueryBlocksByAccount(account storage.AccountID) []storage.Block {
+	blocks, err := s.db.ReadAllBlocks(s.evHandler, false)
 	if err != nil {
 		return []storage.Block{}
 	}
@@ -66,7 +66,7 @@ blocks:
 			if err != nil {
 				continue
 			}
-			if account == "" || from == account || tx.To == account {
+			if account == "" || from == account || tx.ToID == account {
 				out = append(out, block)
 				continue blocks
 			}

@@ -8,7 +8,7 @@ import (
 
 // tipSelect returns transactions with the best tip while respecting
 // the nonce for each account/transaction.
-var tipSelect = func(m map[storage.Account][]storage.BlockTx, howMany int) []storage.BlockTx {
+var tipSelect = func(m map[storage.AccountID][]storage.BlockTx, howMany int) []storage.BlockTx {
 	// Sort the transaction by nonce.
 	for key := range m {
 		if len(m[key]) > 1 {

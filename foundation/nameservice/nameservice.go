@@ -16,13 +16,13 @@ import (
 
 // NameService maintains a map of accounts for name lookup
 type NameService struct {
-	accounts map[storage.Account]string
+	accounts map[storage.AccountID]string
 }
 
 // New constructs a name service for the blockchain with accounts from the zblock/accounts folder.
 func New(root string) (*NameService, error) {
 	ns := NameService{
-		accounts: make(map[storage.Account]string),
+		accounts: make(map[storage.AccountID]string),
 	}
 	
 	fn := func(fileName string, info fs.FileInfo, err error) error {
@@ -39,8 +39,8 @@ func New(root string) (*NameService, error) {
 			return err
 		}
 		
-		account := storage.PublicKeyToAccount(privateKey.PublicKey)
-		ns.accounts[account] = strings.TrimSuffix(path.Base(fileName), ".ecdsa")
+		accountID := storage.PublicKeyToAccount(privateKey.PublicKey)
+		ns.accounts[accountID] = strings.TrimSuffix(path.Base(fileName), ".ecdsa")
 		
 		return nil
 	}
@@ -53,21 +53,21 @@ func New(root string) (*NameService, error) {
 }
 
 // Lookup returns the name for the specified account.
-func (ns *NameService) Lookup(account storage.Account) string {
-	name, exists := ns.accounts[account]
+func (ns *NameService) Lookup(accountID storage.AccountID) string {
+	name, exists := ns.accounts[accountID]
 	if !exists {
-		return string(account)
+		return string(accountID)
 	}
 	
 	return name
 }
 
 // Copy returns a copy of the map of names and accounts
-func (ns *NameService) Copy() map[storage.Account]string {
-	cpy := make(map[storage.Account]string, len(ns.accounts))
+func (ns *NameService) Copy() map[storage.AccountID]string {
+	accounts := make(map[storage.AccountID]string, len(ns.accounts))
 	for account, name := range ns.accounts {
-		cpy[account] = name
+		accounts[account] = name
 	}
 	
-	return cpy
+	return accounts
 }

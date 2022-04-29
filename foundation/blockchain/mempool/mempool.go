@@ -99,7 +99,7 @@ func (mp *Mempool) PickBest(howMany ...int) []storage.BlockTx {
 	
 	// Copy all the transactions for each account
 	// into separate slices for each account.
-	m := make(map[storage.Account][]storage.BlockTx)
+	m := make(map[storage.AccountID][]storage.BlockTx)
 	mp.mu.RLock()
 	{
 		if number == -1 {
@@ -127,6 +127,6 @@ func mapKey(tx storage.BlockTx) (string, error) {
 }
 
 // accountFromMapKey extracts the account information from mapkey.
-func accountFromMapKey(key string) storage.Account {
-	return storage.Account(strings.Split(key, ":")[0])
+func accountFromMapKey(key string) storage.AccountID {
+	return storage.AccountID(strings.Split(key, ":")[0])
 }

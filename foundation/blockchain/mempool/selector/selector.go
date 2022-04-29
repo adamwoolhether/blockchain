@@ -24,7 +24,7 @@ var strategies = map[string]Func{
 // account and selects howMany of them in an order based on the function
 // strategy. All selector functions muust respect nonce ordering. Receiving
 // -1 for howMany must return all the transactions in the strategy ordering.
-type Func func(transactions map[storage.Account][]storage.BlockTx, howMany int) []storage.BlockTx
+type Func func(transactions map[storage.AccountID][]storage.BlockTx, howMany int) []storage.BlockTx
 
 // Retrieve returns the selected strategy function.
 func Retrieve(strategy string) (Func, error) {
