@@ -1,7 +1,7 @@
 package state
 
 import (
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/accounts"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
@@ -9,10 +9,10 @@ import (
 const QueryLatest = ^uint64(0) >> 1
 
 // QueryAccounts returns a copy of the account informatin by account.
-func (s *State) QueryAccounts(account storage.Account) map[storage.Account]accounts.Info {
-	cpy := s.accounts.Copy()
+func (s *State) QueryAccounts(account storage.Account) map[storage.Account]database.Info {
+	cpy := s.db.Copy()
 	
-	final := make(map[storage.Account]accounts.Info)
+	final := make(map[storage.Account]database.Info)
 	if info, exists := cpy[account]; exists {
 		final[account] = info
 	}

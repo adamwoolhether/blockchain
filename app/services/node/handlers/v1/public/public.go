@@ -12,7 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	
 	v1 "github.com/adamwoolhether/blockchain/business/web/v1"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/accounts"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 	"github.com/adamwoolhether/blockchain/foundation/events"
@@ -135,33 +135,33 @@ func (h Handlers) Mempool(ctx context.Context, w http.ResponseWriter, r *http.Re
 func (h Handlers) Accounts(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	account := web.Param(r, "account")
 	
-	var blkAccounts map[storage.Account]accounts.Info
+	var db map[storage.Account]database.Info
 	switch account {
 	case "":
-		blkAccounts = h.State.RetrieveAccounts()
+		db = h.State.RetrieveDatabase()
 	default:
 		account, err := storage.ToAccount(account)
 		if err != nil {
 			return err
 		}
-		blkAccounts = h.State.QueryAccounts(account)
+		db = h.State.QueryAccounts(account)
 	}
 	
-	accts := make([]info, 0, len(blkAccounts))
-	for account, blkInfo := range blkAccounts {
-		acct := info{
+	accounts := make([]acct, 0, len(db))
+	for account, blkInfo := range db {
+		acct := acct{
 			Account: account,
 			Name:    h.NS.Lookup(account),
 			Balance: blkInfo.Balance,
 			Nonce:   blkInfo.Nonce,
 		}
-		accts = append(accts, acct)
+		accounts = append(accounts, acct)
 	}
 	
 	ai := acctInfo{
 		LatestBlock: h.State.RetrieveLatestBlock().Hash(),
 		Uncommitted: len(h.State.RetrieveMempool()),
-		Accounts:    accts,
+		Accounts:    accounts,
 	}
 	
 	return web.Respond(ctx, w, ai, http.StatusOK)

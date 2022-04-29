@@ -85,12 +85,12 @@ func (s *State) updateLocalState(block storage.Block) error {
 	
 	s.evHandler("state: updateLocalState: update accounts and remove from mempool")
 	
-	// Process the transactions and update the accounts.
+	// Process the transactions and update the database.
 	for _, tx := range block.Transactions.Values() {
 		s.evHandler("state: updateLocalState: tx[%s] update and remove", tx)
 		
 		// Apply the balance changes based on this transaction.
-		if err := s.accounts.ApplyTx(block.Header.MinerAccount, tx); err != nil {
+		if err := s.db.ApplyTx(block.Header.MinerAccount, tx); err != nil {
 			s.evHandler("state: updateLocalState: WARNING : %s", err)
 			continue
 		}
@@ -102,7 +102,7 @@ func (s *State) updateLocalState(block storage.Block) error {
 	s.evHandler("state: updateLocalState: apply mining reward")
 	
 	// Apply the mining reward for this block.
-	s.accounts.ApplyMiningReward(block.Header.MinerAccount)
+	s.db.ApplyMiningReward(block.Header.MinerAccount)
 	
 	return nil
 }

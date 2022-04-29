@@ -1,7 +1,7 @@
 package state
 
 import (
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/accounts"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
@@ -30,9 +30,9 @@ func (s *State) RetrieveMempool() []storage.BlockTx {
 	return s.mempool.PickBest()
 }
 
-// RetrieveAccounts returns a copy of the set of account information.
-func (s *State) RetrieveAccounts() map[storage.Account]accounts.Info {
-	return s.accounts.Copy()
+// RetrieveDatabase returns a copy of the set of account information.
+func (s *State) RetrieveDatabase() map[storage.Account]database.Info {
+	return s.db.Copy()
 }
 
 // RetrieveKnownPeers retrieves a copy of the known peer list.

@@ -1,5 +1,5 @@
-// Package accounts maintains account balances and other account information.
-package accounts
+// Package database maintains account balances and other account information.
+package database
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ type Info struct {
 	Nonce   uint
 }
 
-// Accounts manages data related to accounts who have transacted on the blockchain.
+// Accounts manages data related to database who have transacted on the blockchain.
 type Accounts struct {
 	genesis genesis.Genesis
 	info    map[storage.Account]Info
@@ -43,7 +43,7 @@ func New(genesis genesis.Genesis, blocks []storage.Block) *Accounts {
 	return &accts
 }
 
-// Reset re-initializes the accounts back to the genesis information.
+// Reset re-initializes the database back to the genesis information.
 func (act *Accounts) Reset() {
 	act.mu.Lock()
 	defer act.mu.Unlock()
@@ -54,7 +54,7 @@ func (act *Accounts) Reset() {
 	}
 }
 
-// Remove deletes an accounts from the accounts.
+// Remove deletes an database from the database.
 func (act *Accounts) Remove(account storage.Account) {
 	act.mu.Lock()
 	defer act.mu.Unlock()
@@ -62,7 +62,7 @@ func (act *Accounts) Remove(account storage.Account) {
 	delete(act.info, account)
 }
 
-// Copy makes a copy of the current information for all accounts
+// Copy makes a copy of the current information for all database
 // using value semantics.
 func (act *Accounts) Copy() map[storage.Account]Info {
 	act.mu.RLock()
@@ -110,7 +110,7 @@ func (act *Accounts) ApplyMiningReward(minerAccount storage.Account) {
 }
 
 // ApplyTx performs the business logic for applying
-// a transaction to the accounts information.
+// a transaction to the database information.
 func (act *Accounts) ApplyTx(minerAccount storage.Account, tx storage.BlockTx) error {
 	from, err := tx.FromAccount()
 	if err != nil {
