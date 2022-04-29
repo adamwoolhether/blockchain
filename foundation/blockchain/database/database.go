@@ -15,81 +15,81 @@ type Info struct {
 	Nonce   uint
 }
 
-// Accounts manages data related to database who have transacted on the blockchain.
-type Accounts struct {
+// Database manages data related to database who have transacted on the blockchain.
+type Database struct {
 	genesis genesis.Genesis
-	info    map[storage.Account]Info
+	records map[storage.Account]Info
 	mu      sync.RWMutex
 }
 
 // New Constructs a new account and applies genesis and block information.
-func New(genesis genesis.Genesis, blocks []storage.Block) *Accounts {
-	accts := Accounts{
+func New(genesis genesis.Genesis, blocks []storage.Block) *Database {
+	db := Database{
 		genesis: genesis,
-		info:    make(map[storage.Account]Info),
+		records: make(map[storage.Account]Info),
 	}
 	
 	for account, balance := range genesis.Balances {
-		accts.info[account] = Info{Balance: balance}
+		db.records[account] = Info{Balance: balance}
 	}
 	
 	for _, block := range blocks {
 		for _, tx := range block.Transactions.Values() {
-			accts.ApplyTx(block.Header.MinerAccount, tx)
+			db.ApplyTx(block.Header.MinerAccount, tx)
 		}
-		accts.ApplyMiningReward(block.Header.MinerAccount)
+		db.ApplyMiningReward(block.Header.MinerAccount)
 	}
 	
-	return &accts
+	return &db
 }
 
 // Reset re-initializes the database back to the genesis information.
-func (act *Accounts) Reset() {
-	act.mu.Lock()
-	defer act.mu.Unlock()
+func (db *Database) Reset() {
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	
-	act.info = make(map[storage.Account]Info)
-	for account, balance := range act.genesis.Balances {
-		act.info[account] = Info{Balance: balance}
+	db.records = make(map[storage.Account]Info)
+	for account, balance := range db.genesis.Balances {
+		db.records[account] = Info{Balance: balance}
 	}
 }
 
 // Remove deletes an database from the database.
-func (act *Accounts) Remove(account storage.Account) {
-	act.mu.Lock()
-	defer act.mu.Unlock()
+func (db *Database) Remove(account storage.Account) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	
-	delete(act.info, account)
+	delete(db.records, account)
 }
 
-// Copy makes a copy of the current information for all database
+// CopyRecords makes a copy of the current information for all database
 // using value semantics.
-func (act *Accounts) Copy() map[storage.Account]Info {
-	act.mu.RLock()
-	defer act.mu.RUnlock()
+func (db *Database) CopyRecords() map[storage.Account]Info {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	
-	accounts := make(map[storage.Account]Info)
-	for account, info := range act.info {
-		accounts[account] = info
+	records := make(map[storage.Account]Info)
+	for account, info := range db.records {
+		records[account] = info
 	}
 	
-	return accounts
+	return records
 }
 
 // ValidateNonce validates the nonce for the specified transaction is larger
 // than the last nonce used by the account who signed the transaction.
-func (act *Accounts) ValidateNonce(tx storage.SignedTx) error {
+func (db *Database) ValidateNonce(tx storage.SignedTx) error {
 	from, err := tx.FromAccount()
 	if err != nil {
 		return err
 	}
 	
 	var info Info
-	act.mu.RLock()
+	db.mu.RLock()
 	{
-		info = act.info[from]
+		info = db.records[from]
 	}
-	act.mu.RUnlock()
+	db.mu.RUnlock()
 	
 	if tx.Nonce <= info.Nonce {
 		return fmt.Errorf("invalid nonce, got %d, exp > %d", tx.Nonce, info.Nonce)
@@ -99,44 +99,44 @@ func (act *Accounts) ValidateNonce(tx storage.SignedTx) error {
 }
 
 // ApplyMiningReward gives the specified miner account the mining reward.
-func (act *Accounts) ApplyMiningReward(minerAccount storage.Account) {
-	act.mu.Lock()
-	defer act.mu.Unlock()
+func (db *Database) ApplyMiningReward(minerAccount storage.Account) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	
-	info := act.info[minerAccount]
-	info.Balance += act.genesis.MiningReward
+	info := db.records[minerAccount]
+	info.Balance += db.genesis.MiningReward
 	
-	act.info[minerAccount] = info
+	db.records[minerAccount] = info
 }
 
 // ApplyTx performs the business logic for applying
 // a transaction to the database information.
-func (act *Accounts) ApplyTx(minerAccount storage.Account, tx storage.BlockTx) error {
+func (db *Database) ApplyTx(minerAccount storage.Account, tx storage.BlockTx) error {
 	from, err := tx.FromAccount()
 	if err != nil {
 		return fmt.Errorf("invalid signature, %s", err)
 	}
 	
-	act.mu.Lock()
-	defer act.mu.Unlock()
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	{
 		if from == tx.To {
 			return fmt.Errorf("invalid transaction, sending money to yourself, from %s to %s", from, tx.To)
 		}
 		
-		fromInfo := act.info[from]
+		fromInfo := db.records[from]
 		if tx.Nonce < fromInfo.Nonce {
 			return fmt.Errorf("invalid transaction, nonce too small, last %d, tx %d", fromInfo.Nonce, tx.Nonce)
 		}
 		
 		fee := tx.Gas + tx.Tip
 		
-		if tx.Value+fee > act.info[from].Balance {
+		if tx.Value+fee > db.records[from].Balance {
 			return fmt.Errorf("%s has an insufficient balance", from)
 		}
 		
-		toInfo := act.info[tx.To]
-		minerInfo := act.info[minerAccount]
+		toInfo := db.records[tx.To]
+		minerInfo := db.records[minerAccount]
 		
 		fromInfo.Balance -= tx.Value
 		toInfo.Balance += tx.Value
@@ -146,9 +146,9 @@ func (act *Accounts) ApplyTx(minerAccount storage.Account, tx storage.BlockTx) e
 		
 		fromInfo.Nonce = tx.Nonce
 		
-		act.info[from] = fromInfo
-		act.info[tx.To] = toInfo
-		act.info[minerAccount] = minerInfo
+		db.records[from] = fromInfo
+		db.records[tx.To] = toInfo
+		db.records[minerAccount] = minerInfo
 	}
 	return nil
 }

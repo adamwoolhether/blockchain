@@ -56,7 +56,7 @@ type State struct {
 	genesis    genesis.Genesis
 	mempool    *mempool.Mempool
 	storage    *storage.Storage
-	db         *database.Accounts
+	db         *database.Database
 	
 	Worker Worker
 }
