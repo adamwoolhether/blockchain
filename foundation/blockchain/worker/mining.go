@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 	
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
 // miningOperations handles mining.
@@ -136,7 +136,7 @@ func (w *Worker) runMiningOperation() {
 }
 
 // sendBlockToPeers takes the new mined block and sends it to all know peers.
-func (w *Worker) sendBlockToPeers(block storage.Block) error {
+func (w *Worker) sendBlockToPeers(block database.Block) error {
 	w.evHandler("Worker: runMiningOperation: MINING: sendBlockToPeers: started")
 	defer w.evHandler("Worker: runMiningOperation: MINING: sendBlockToPeers: completed")
 	
@@ -147,7 +147,7 @@ func (w *Worker) sendBlockToPeers(block storage.Block) error {
 			Status string `json:"status"`
 		}
 		
-		if err := send(http.MethodPost, url, storage.NewBlockFS(block), &status); err != nil {
+		if err := send(http.MethodPost, url, database.NewBlockFS(block), &status); err != nil {
 			return fmt.Errorf("%s: %s", pr.Host, err)
 		}
 		

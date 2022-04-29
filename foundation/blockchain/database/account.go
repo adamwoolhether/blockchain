@@ -1,4 +1,4 @@
-package storage
+package database
 
 import (
 	"crypto/ecdsa"
@@ -6,6 +6,12 @@ import (
 	
 	"github.com/ethereum/go-ethereum/crypto"
 )
+
+// Account represents information stored in the database for an individual account.
+type Account struct {
+	Balance uint
+	Nonce   uint
+}
 
 // AccountID represents an account in the system that can
 // sign and is associated with transactions on the blockchain.
@@ -22,8 +28,8 @@ func ToAccountID(hex string) (AccountID, error) {
 	return a, nil
 }
 
-// PublicKeyToAccount converts the public key to an account value.
-func PublicKeyToAccount(pk ecdsa.PublicKey) AccountID {
+// PublicKeyToAccountID converts the public key to an account value.
+func PublicKeyToAccountID(pk ecdsa.PublicKey) AccountID {
 	return AccountID(crypto.PubkeyToAddress(pk).String())
 }
 

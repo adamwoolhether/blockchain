@@ -11,9 +11,9 @@ import (
 	"go.uber.org/zap"
 	
 	v1 "github.com/adamwoolhether/blockchain/business/web/v1"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 	"github.com/adamwoolhether/blockchain/foundation/nameservice"
 	"github.com/adamwoolhether/blockchain/foundation/web"
 )
@@ -32,7 +32,7 @@ func (h Handlers) SubmitNodeTransaction(ctx context.Context, w http.ResponseWrit
 		return web.NewShutdownError("web value missing from context")
 	}
 	
-	var tx storage.BlockTx
+	var tx database.BlockTx
 	if err := web.Decode(r, &tx); err != nil {
 		return fmt.Errorf("unable to decode payload: %w", err)
 	}
@@ -54,18 +54,18 @@ func (h Handlers) SubmitNodeTransaction(ctx context.Context, w http.ResponseWrit
 // MinePeerBlock accepts a newly mined block from a peer, validates it,
 // and adds it to the blockchain.
 func (h Handlers) MinePeerBlock(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	var blockFS storage.BlockFS
+	var blockFS database.BlockFS
 	if err := web.Decode(r, &blockFS); err != nil {
 		return fmt.Errorf("unable to decode payload: %w", err)
 	}
 	
-	block, err := storage.ToBlock(blockFS)
+	block, err := database.ToBlock(blockFS)
 	if err != nil {
 		return fmt.Errorf("unable to decode block: %w", err)
 	}
 	
 	if err := h.State.MinePeerBlock(block); err != nil {
-		if errors.Is(err, storage.ErrChainForked) {
+		if errors.Is(err, database.ErrChainForked) {
 			h.State.Resync()
 		}
 		
@@ -124,9 +124,9 @@ func (h Handlers) BlocksByNumber(ctx context.Context, w http.ResponseWriter, r *
 		return web.Respond(ctx, w, nil, http.StatusNoContent)
 	}
 	
-	blocksFS := make([]storage.BlockFS, len(blocks))
+	blocksFS := make([]database.BlockFS, len(blocks))
 	for i, block := range blocks {
-		blocksFS[i] = storage.NewBlockFS(block)
+		blocksFS[i] = database.NewBlockFS(block)
 	}
 	
 	return web.Respond(ctx, w, blocksFS, http.StatusOK)

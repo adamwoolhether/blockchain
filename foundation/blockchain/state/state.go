@@ -9,7 +9,6 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
 // EventHandler defines a function that is called
@@ -23,7 +22,7 @@ type Worker interface {
 	Sync()
 	SignalStartMining()
 	SignalCancelMining() (done func())
-	SignalShareTx(blockTx storage.BlockTx)
+	SignalShareTx(blockTx database.BlockTx)
 }
 
 // /////////////////////////////////////////////////////////////////
@@ -31,7 +30,7 @@ type Worker interface {
 // Config represents the configuration requires
 // to start the blockchain node.
 type Config struct {
-	MinerAccountID storage.AccountID
+	MinerAccountID database.AccountID
 	Host           string
 	DBPath         string
 	SelectStrategy string
@@ -43,7 +42,7 @@ type Config struct {
 type State struct {
 	mu sync.RWMutex
 	
-	minerAccountID storage.AccountID
+	minerAccountID database.AccountID
 	host           string
 	dbPath         string
 	evHandler      EventHandler

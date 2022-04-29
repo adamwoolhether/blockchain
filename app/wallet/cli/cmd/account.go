@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
 // accountCmd represents the account command
@@ -37,7 +37,7 @@ func runAccount(user string) error {
 		return err
 	}
 	
-	account := storage.PublicKeyToAccount(privateKey.PublicKey)
+	account := database.PublicKeyToAccountID(privateKey.PublicKey)
 	fmt.Println(account)
 	
 	return nil

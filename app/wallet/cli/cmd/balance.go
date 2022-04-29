@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
 type balance struct {
@@ -51,10 +51,10 @@ func runBalance(user string) error {
 		return err
 	}
 	
-	account := storage.PublicKeyToAccount(privateKey.PublicKey)
-	fmt.Println("For Account:", account)
+	accountID := database.PublicKeyToAccountID(privateKey.PublicKey)
+	fmt.Println("For Account:", accountID)
 	
-	resp, err := http.Get(fmt.Sprintf("%s/v1/balances/list/%s", url, account))
+	resp, err := http.Get(fmt.Sprintf("%s/v1/balances/list/%s", url, accountID))
 	if err != nil {
 		return err
 	}

@@ -14,7 +14,6 @@ import (
 	v1 "github.com/adamwoolhether/blockchain/business/web/v1"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 	"github.com/adamwoolhether/blockchain/foundation/events"
 	"github.com/adamwoolhether/blockchain/foundation/nameservice"
 	"github.com/adamwoolhether/blockchain/foundation/web"
@@ -74,7 +73,7 @@ func (h Handlers) SubmitWalletTransaction(ctx context.Context, w http.ResponseWr
 		return err
 	}
 	
-	var signedTx storage.SignedTx
+	var signedTx database.SignedTx
 	if err := web.Decode(r, &signedTx); err != nil {
 		return fmt.Errorf("unable to decode payload: %w", err)
 	}
@@ -135,38 +134,38 @@ func (h Handlers) Mempool(ctx context.Context, w http.ResponseWriter, r *http.Re
 func (h Handlers) Accounts(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	accountStr := web.Param(r, "accountID")
 	
-	var records map[storage.AccountID]database.Account
+	var accounts map[database.AccountID]database.Account
 	switch accountStr {
 	case "":
-		records = h.State.RetrieveDatabaseRecords()
+		accounts = h.State.RetrieveAccounts()
 	default:
-		accountID, err := storage.ToAccountID(accountStr)
+		accountID, err := database.ToAccountID(accountStr)
 		if err != nil {
 			return err
 		}
-		account, err := h.State.QueryDatabaseRecord(accountID)
+		account, err := h.State.QueryAccounts(accountID)
 		if err != nil {
 			return err
 		}
 		
-		records = map[storage.AccountID]database.Account{accountID: account}
+		accounts = map[database.AccountID]database.Account{accountID: account}
 	}
 	
-	accounts := make([]acct, 0, len(records))
-	for account, info := range records {
+	resp := make([]acct, 0, len(accounts))
+	for account, info := range accounts {
 		acct := acct{
 			Account: account,
 			Name:    h.NS.Lookup(account),
 			Balance: info.Balance,
 			Nonce:   info.Nonce,
 		}
-		accounts = append(accounts, acct)
+		resp = append(resp, acct)
 	}
 	
 	ai := acctInfo{
 		LatestBlock: h.State.RetrieveLatestBlock().Hash(),
 		Uncommitted: len(h.State.RetrieveMempool()),
-		Accounts:    accounts,
+		Accounts:    resp,
 	}
 	
 	return web.Respond(ctx, w, ai, http.StatusOK)
@@ -174,7 +173,7 @@ func (h Handlers) Accounts(ctx context.Context, w http.ResponseWriter, r *http.R
 
 // BlocksByAccount returns all the blocks and their details.
 func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	accountStr, err := storage.ToAccountID(web.Param(r, "accountStr"))
+	accountStr, err := database.ToAccountID(web.Param(r, "accountStr"))
 	if err != nil {
 		return err
 	}

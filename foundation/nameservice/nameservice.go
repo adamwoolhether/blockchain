@@ -11,18 +11,18 @@ import (
 	
 	"github.com/ethereum/go-ethereum/crypto"
 	
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
 // NameService maintains a map of accounts for name lookup
 type NameService struct {
-	accounts map[storage.AccountID]string
+	accounts map[database.AccountID]string
 }
 
 // New constructs a name service for the blockchain with accounts from the zblock/accounts folder.
 func New(root string) (*NameService, error) {
 	ns := NameService{
-		accounts: make(map[storage.AccountID]string),
+		accounts: make(map[database.AccountID]string),
 	}
 	
 	fn := func(fileName string, info fs.FileInfo, err error) error {
@@ -39,7 +39,7 @@ func New(root string) (*NameService, error) {
 			return err
 		}
 		
-		accountID := storage.PublicKeyToAccount(privateKey.PublicKey)
+		accountID := database.PublicKeyToAccountID(privateKey.PublicKey)
 		ns.accounts[accountID] = strings.TrimSuffix(path.Base(fileName), ".ecdsa")
 		
 		return nil
@@ -53,7 +53,7 @@ func New(root string) (*NameService, error) {
 }
 
 // Lookup returns the name for the specified account.
-func (ns *NameService) Lookup(accountID storage.AccountID) string {
+func (ns *NameService) Lookup(accountID database.AccountID) string {
 	name, exists := ns.accounts[accountID]
 	if !exists {
 		return string(accountID)
@@ -63,8 +63,8 @@ func (ns *NameService) Lookup(accountID storage.AccountID) string {
 }
 
 // Copy returns a copy of the map of names and accounts
-func (ns *NameService) Copy() map[storage.AccountID]string {
-	accounts := make(map[storage.AccountID]string, len(ns.accounts))
+func (ns *NameService) Copy() map[database.AccountID]string {
+	accounts := make(map[database.AccountID]string, len(ns.accounts))
 	for account, name := range ns.accounts {
 		accounts[account] = name
 	}

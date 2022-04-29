@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap"
 	
 	"github.com/adamwoolhether/blockchain/app/services/node/handlers"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/worker"
 	"github.com/adamwoolhether/blockchain/foundation/events"
 	"github.com/adamwoolhether/blockchain/foundation/logger"
@@ -123,15 +123,12 @@ func run(log *zap.SugaredLogger) error {
 		return fmt.Errorf("unable to load private key for node: %w", err)
 	}
 	
-	accountID := storage.PublicKeyToAccount(privateKey.PublicKey)
-	
 	peerSet := peer.NewSet()
 	for _, host := range cfg.Node.KnownPeers {
 		peerSet.Add(peer.New(host))
 	}
 	
 	evts := events.New()
-	
 	ev := func(v string, args ...any) {
 		s := fmt.Sprintf(v, args...)
 		log.Infow(s, "traceid", "00000000-0000-0000-0000-000000000000")
@@ -139,7 +136,7 @@ func run(log *zap.SugaredLogger) error {
 	}
 	
 	st, err := state.New(state.Config{
-		MinerAccountID: accountID,
+		MinerAccountID: database.PublicKeyToAccountID(privateKey.PublicKey),
 		Host:           cfg.Web.PrivateHost,
 		DBPath:         cfg.Node.DBPath,
 		SelectStrategy: cfg.Node.SelectStrategy,

@@ -4,17 +4,16 @@ import (
 	"errors"
 	
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
 )
 
 // QueryLatest represents a query to the latest block in the chain.
 const QueryLatest = ^uint64(0) >> 1
 
-// QueryDatabaseRecord returns a copy of the database record for the specified account.
-func (s *State) QueryDatabaseRecord(account storage.AccountID) (database.Account, error) {
-	records := s.db.CopyRecords()
+// QueryAccounts returns a copy of the database record for the specified account.
+func (s *State) QueryAccounts(account database.AccountID) (database.Account, error) {
+	accounts := s.db.CopyAccounts()
 	
-	if info, exists := records[account]; exists {
+	if info, exists := accounts[account]; exists {
 		return info, nil
 	}
 	
@@ -28,10 +27,10 @@ func (s *State) QueryMempoolLength() int {
 
 // QueryBlocksByNumber returns the set of blocks based on block numbers.
 // This function reads the blockchain from the disk first.
-func (s *State) QueryBlocksByNumber(from, to uint64) []storage.Block {
+func (s *State) QueryBlocksByNumber(from, to uint64) []database.Block {
 	blocks, err := s.db.ReadAllBlocks(s.evHandler, false)
 	if err != nil {
-		return []storage.Block{}
+		return []database.Block{}
 	}
 	
 	if from == QueryLatest {
@@ -39,7 +38,7 @@ func (s *State) QueryBlocksByNumber(from, to uint64) []storage.Block {
 		to = from
 	}
 	
-	var out []storage.Block
+	var out []database.Block
 	for _, block := range blocks {
 		if block.Header.Number >= from && block.Header.Number <= to {
 			out = append(out, block)
@@ -52,13 +51,13 @@ func (s *State) QueryBlocksByNumber(from, to uint64) []storage.Block {
 // QueryBlocksByAccount returns the set of blocks by account. If the account
 // is empty, all blocks are returns. This function reads the blockchain
 // from disk first.
-func (s *State) QueryBlocksByAccount(account storage.AccountID) []storage.Block {
+func (s *State) QueryBlocksByAccount(account database.AccountID) []database.Block {
 	blocks, err := s.db.ReadAllBlocks(s.evHandler, false)
 	if err != nil {
-		return []storage.Block{}
+		return []database.Block{}
 	}
 	
-	var out []storage.Block
+	var out []database.Block
 blocks:
 	for _, block := range blocks {
 		for _, tx := range block.Transactions.Values() {

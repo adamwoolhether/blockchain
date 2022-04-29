@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
 // maxTxShareRequests represents the max number of pending-tx network
@@ -33,7 +33,7 @@ func (w *Worker) shareTxOperations() {
 }
 
 // runShareTxOperation updates the peer list and sync's up the database.
-func (w *Worker) runShareTxOperation(tx storage.BlockTx) {
+func (w *Worker) runShareTxOperation(tx database.BlockTx) {
 	w.evHandler("Worker: runShareTxOperation: started")
 	defer w.evHandler("Worker: runShareTxOperation: completed")
 	

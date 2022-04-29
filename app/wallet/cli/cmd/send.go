@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
 var (
@@ -55,12 +55,12 @@ func runSend(user string) error {
 		return err
 	}
 	
-	toAccount, err := storage.ToAccountID(to)
+	toAccount, err := database.ToAccountID(to)
 	if err != nil {
 		return err
 	}
 	
-	userTx, err := storage.NewUserTx(nonce, toAccount, value, tip, data)
+	userTx, err := database.NewUserTx(nonce, toAccount, value, tip, data)
 	if err != nil {
 		return err
 	}
