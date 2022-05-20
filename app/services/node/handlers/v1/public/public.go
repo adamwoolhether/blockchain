@@ -3,14 +3,15 @@ package public
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"time"
-	
+
 	"go.uber.org/zap"
-	
+
 	"github.com/gorilla/websocket"
-	
+
 	v1 "github.com/adamwoolhether/blockchain/business/web/v1"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
@@ -34,21 +35,21 @@ func (h Handlers) Events(ctx context.Context, w http.ResponseWriter, r *http.Req
 	if err != nil {
 		return err
 	}
-	
+
 	h.WS.CheckOrigin = func(r *http.Request) bool { return true } // required to bypass CORS issues, this is a security issue!.
-	
+
 	// "hijack"" the http connection to a websocket connection
 	c, err := h.WS.Upgrade(w, r, nil)
 	if err != nil {
 		return err
 	}
 	defer c.Close()
-	
+
 	ch := h.Evts.Acquire(v.TraceID)
 	defer h.Evts.Release(v.TraceID)
-	
+
 	ticker := time.NewTicker(time.Second)
-	
+
 	for {
 		select {
 		case msg, wd := <-ch:
@@ -72,46 +73,46 @@ func (h Handlers) SubmitWalletTransaction(ctx context.Context, w http.ResponseWr
 	if err != nil {
 		return err
 	}
-	
+
 	var signedTx database.SignedTx
 	if err := web.Decode(r, &signedTx); err != nil {
 		return fmt.Errorf("unable to decode payload: %w", err)
 	}
-	
+
 	h.Log.Infow("add user tran", "traceid", v.TraceID, "from:nonce", signedTx, "to", signedTx.ToID, "value", signedTx.Value, "tip", signedTx.Tip)
 	if err := h.State.UpsertWalletTransaction(signedTx); err != nil {
 		return v1.NewRequestError(err, http.StatusBadRequest)
 	}
-	
+
 	resp := struct {
 		Status string `json:"status"`
 	}{
 		Status: "transactions added to mempool",
 	}
-	
+
 	return web.Respond(ctx, w, resp, http.StatusOK)
 }
 
 // Genesis return the genesis block information.
 func (h Handlers) Genesis(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	gen := h.State.RetrieveGenesis()
-	
+
 	return web.Respond(ctx, w, gen, http.StatusOK)
 }
 
 // Mempool returns the set of uncommited transactions.
 func (h Handlers) Mempool(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	acct := web.Param(r, "account")
-	
+
 	mpool := h.State.RetrieveMempool()
-	
+
 	txs := []tx{}
 	for _, t := range mpool {
 		account, _ := t.FromAccount()
 		if acct != "" && ((acct != string(account)) && (acct != string(t.ToID))) {
 			continue
 		}
-		
+
 		txs = append(txs, tx{
 			FromAccount: account,
 			FromName:    h.NS.Lookup(account),
@@ -126,14 +127,14 @@ func (h Handlers) Mempool(ctx context.Context, w http.ResponseWriter, r *http.Re
 			Sig:         t.SignatureString(),
 		})
 	}
-	
+
 	return web.Respond(ctx, w, mpool, http.StatusOK)
 }
 
 // Accounts returns the current balances for all users.
 func (h Handlers) Accounts(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	accountStr := web.Param(r, "accountID")
-	
+
 	var accounts map[database.AccountID]database.Account
 	switch accountStr {
 	case "":
@@ -147,10 +148,10 @@ func (h Handlers) Accounts(ctx context.Context, w http.ResponseWriter, r *http.R
 		if err != nil {
 			return err
 		}
-		
+
 		accounts = map[database.AccountID]database.Account{accountID: account}
 	}
-	
+
 	resp := make([]acct, 0, len(accounts))
 	for account, info := range accounts {
 		acct := acct{
@@ -161,13 +162,13 @@ func (h Handlers) Accounts(ctx context.Context, w http.ResponseWriter, r *http.R
 		}
 		resp = append(resp, acct)
 	}
-	
+
 	ai := acctInfo{
 		LatestBlock: h.State.RetrieveLatestBlock().Hash(),
 		Uncommitted: len(h.State.RetrieveMempool()),
 		Accounts:    resp,
 	}
-	
+
 	return web.Respond(ctx, w, ai, http.StatusOK)
 }
 
@@ -177,23 +178,37 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 	if err != nil {
 		return err
 	}
-	
+
 	dbBlocks := h.State.QueryBlocksByAccount(accountStr)
 	if len(dbBlocks) == 0 {
 		return web.Respond(ctx, w, nil, http.StatusNoContent)
 	}
-	
+
 	blocks := make([]block, len(dbBlocks))
 	for j, blk := range dbBlocks {
 		values := blk.Transactions.Values()
 		txs := make([]tx, len(blk.Transactions.Values()))
-		
+
 		for i, tran := range values {
 			account, err := tran.FromAccount()
 			if err != nil {
 				return err
 			}
-			
+
+			rawProof, idx, err := blk.Transactions.MerklePath(tran)
+			if err != nil {
+				return err
+			}
+			proof := make([]string, len(rawProof))
+			for i, rp := range rawProof {
+				proof[i] = "0x" + hex.EncodeToString(rp)
+			}
+
+			hash, err := tran.Hash()
+			if err != nil {
+				return err
+			}
+
 			txs[i] = tx{
 				FromAccount: account,
 				FromName:    h.NS.Lookup(account),
@@ -206,9 +221,12 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 				TimeStamp:   tran.TimeStamp,
 				Gas:         tran.Gas,
 				Sig:         tran.SignatureString(),
+				Hash:        "0x" + hex.EncodeToString(hash),
+				Proof:       proof,
+				Index:       idx,
 			}
 		}
-		
+
 		b := block{
 			ParentHash:   blk.Header.ParentHash,
 			MinerAccount: blk.Header.MinerAccountID,
@@ -216,11 +234,12 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 			Number:       blk.Header.Number,
 			TimeStamp:    blk.Header.TimeStamp,
 			Nonce:        blk.Header.Nonce,
+			MerkleRoot:   "0x" + blk.Header.MerkleRoot,
 			Transactions: txs,
 		}
-		
+
 		blocks[j] = b
 	}
-	
+
 	return web.Respond(ctx, w, blocks, http.StatusOK)
 }
