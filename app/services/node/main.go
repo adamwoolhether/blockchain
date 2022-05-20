@@ -136,7 +136,7 @@ func run(log *zap.SugaredLogger) error {
 	}
 
 	st, err := state.New(state.Config{
-		MinerAccountID: database.PublicKeyToAccountID(privateKey.PublicKey),
+		Beneficiary:    database.PublicKeyToAccountID(privateKey.PublicKey),
 		Host:           cfg.Web.PrivateHost,
 		DBPath:         cfg.State.DBPath,
 		SelectStrategy: cfg.State.SelectStrategy,

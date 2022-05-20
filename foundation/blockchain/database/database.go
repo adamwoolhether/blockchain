@@ -72,9 +72,9 @@ func New(dbPath string, genesis genesis.Genesis, evHandler func(v string, args .
 	// Update the databse with account balance information from blocks.
 	for _, block := range blocks {
 		for _, tx := range block.Transactions.Values() {
-			db.ApplyTx(block.Header.MinerAccountID, tx)
+			db.ApplyTx(block.Header.Beneficiary, tx)
 		}
-		db.ApplyMiningReward(block.Header.MinerAccountID)
+		db.ApplyMiningReward(block.Header.Beneficiary)
 	}
 
 	return &db, nil
@@ -164,14 +164,14 @@ func (db *Database) ValidateNonce(tx SignedTx) error {
 }
 
 // ApplyMiningReward gives the specified miner account the mining reward.
-func (db *Database) ApplyMiningReward(minerAccountID AccountID) {
+func (db *Database) ApplyMiningReward(beneficiary AccountID) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	account := db.accounts[minerAccountID]
+	account := db.accounts[beneficiary]
 	account.Balance += db.genesis.MiningReward
 
-	db.accounts[minerAccountID] = account
+	db.accounts[beneficiary] = account
 }
 
 // ApplyTx performs the business logic for applying
