@@ -37,28 +37,34 @@ type Block struct {
 // POW constructs a new Block and performs the work to find a nonce that
 // solves the cryptographic POW puzzle.
 func POW(ctx context.Context, minerAccount AccountID, difficulty int, parentBlock Block, txs []BlockTx, evHandler func(v string, args ...any)) (Block, error) {
+
+	// When mining the first block, the parent hash will be zero
 	parentHash := signature.ZeroHash
 	if parentBlock.Header.Number > 0 {
 		parentHash = parentBlock.Hash()
 	}
 
+	// Construct a merkle tree from the transaction for this block.
+	// The root of this tree will be part of the block to be mined.
 	tree, err := merkle.NewTree(txs)
 	if err != nil {
 		return Block{}, err
 	}
 
+	// Construct the block to be mined.
 	nb := Block{
 		Header: BlockHeader{
 			ParentHash:     parentHash,
 			MinerAccountID: minerAccount,
 			Difficulty:     difficulty,
 			Number:         parentBlock.Header.Number + 1,
-			MerkleRoot:     merkle.ToHex(tree.MerkleRoot),
+			MerkleRoot:     tree.MerkleRootHex(),
 			TimeStamp:      uint64(time.Now().UTC().Unix()),
 		},
 		Transactions: tree,
 	}
 
+	// Perform the proof of work mining operation.
 	if err := nb.PerformPOW(ctx, evHandler); err != nil {
 		return Block{}, err
 	}
@@ -72,17 +78,20 @@ func (b *Block) PerformPOW(ctx context.Context, ev func(v string, args ...any)) 
 	ev("worker: PerformPOW: MINING: started")
 	defer ev("worker: PerformPOW: MINING: completed")
 
+	// Log the transactions that are part of this potential block.
 	for _, tx := range b.Transactions.Values() {
 		ev("worker: PerformPOW: MINING: tx[%s]", tx)
 	}
 
-	// Choose a random starting point for the nonce.
+	// Choose a random starting point for the nonce. Afterwards, the nonce
+	// is incremented by 1 until a solution is found by us or another node.
 	nBig, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	if err != nil {
 		return ctx.Err()
 	}
 	b.Header.Nonce = nBig.Uint64()
 
+	// Log until we or another node finds a solution for the next block.
 	var attempts uint64
 	for {
 		attempts++
@@ -122,9 +131,9 @@ func (b Block) Hash() string {
 		return signature.ZeroHash
 	}
 
-	// Using the block header because data is smaller for unmarshal
-	// operations and the merkle root will allow validation that no
-	// transaction has been tampered with.
+	// Hashing the block header not the whole block because the data is smaller
+	// for the unmarshal operation and the merkel root will let us validate
+	// transactions with a merkle proof.
 
 	return signature.Hash(b.Header)
 }
@@ -186,7 +195,7 @@ func (b Block) ValidateBlock(parentBlock Block, evHandler func(v string, args ..
 
 	evHandler("storage: ValidateBlock: validate: blk[%d]: check: merkle root does match transactions", b.Header.Number)
 
-	if b.Header.MerkleRoot != merkle.ToHex(b.Transactions.MerkleRoot) {
+	if b.Header.MerkleRoot != b.Transactions.MerkleRootHex() {
 		return fmt.Errorf("merkle root does not match transactions, got %s, exp %s", merkle.ToHex(b.Transactions.MerkleRoot), b.Header.MerkleRoot)
 	}
 

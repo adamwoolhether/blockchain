@@ -30,8 +30,8 @@ type Hashable[T any] interface {
 // behavior defined by the Hashable constraint.
 type Tree[T Hashable[T]] struct {
 	Root         *Node[T]
-	MerkleRoot   []byte
 	Leaves       []*Node[T]
+	MerkleRoot   []byte
 	hashStrategy func() hash.Hash
 }
 
@@ -224,6 +224,11 @@ func (t *Tree[T]) Values() []T {
 	}
 
 	return values
+}
+
+// MerkleRootHex converts the merkle root byte hash to a hex encoded string.
+func (t *Tree[T]) MerkleRootHex() string {
+	return ToHex(t.MerkleRoot)
 }
 
 // String returns a string representation of the tree.

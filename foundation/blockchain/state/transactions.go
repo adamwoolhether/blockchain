@@ -9,16 +9,15 @@ func (s *State) UpsertWalletTransaction(signedTx database.SignedTx) error {
 	if err := s.validateTransaction(signedTx); err != nil {
 		return err
 	}
-	
+
 	tx := database.NewBlockTx(signedTx, s.genesis.GasPrice)
-	
 	if err := s.mempool.Upsert(tx); err != nil {
 		return err
 	}
-	
+
 	s.Worker.SignalShareTx(tx)
 	s.Worker.SignalStartMining()
-	
+
 	return nil
 }
 
@@ -27,13 +26,13 @@ func (s *State) UpsertNodeTransaction(tx database.BlockTx) error {
 	if err := s.validateTransaction(tx.SignedTx); err != nil {
 		return err
 	}
-	
+
 	if err := s.mempool.Upsert(tx); err != nil {
 		return err
 	}
-	
+
 	s.Worker.SignalStartMining()
-	
+
 	return nil
 }
 
@@ -45,10 +44,10 @@ func (s *State) validateTransaction(signedTx database.SignedTx) error {
 	if err := signedTx.Validate(); err != nil {
 		return err
 	}
-	
+
 	if err := s.db.ValidateNonce(signedTx); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
