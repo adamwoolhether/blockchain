@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 )
@@ -47,28 +47,28 @@ func Run(state *state.State, evHandler state.EventHandler) {
 		evHandler:    evHandler,
 		baseURL:      "http://%s/v1/node",
 	}
-	
+
 	// Register this Worker with the state package
 	state.Worker = &w
-	
+
 	// Update this node before starting any support G's.
 	w.Sync()
-	
+
 	// Load the set of operations needed to run.
 	operations := []func(){
 		w.peerOperations,
 		w.miningOperations,
 		w.shareTxOperations,
 	}
-	
+
 	// Set waitgroup to match the number of G's needed
 	// for the set of operations we have.
 	g := len(operations)
 	w.wg.Add(g)
-	
+
 	// Don't return until all G's are up and running.
 	hasStarted := make(chan bool)
-	
+
 	// Start all the operations G's
 	for _, op := range operations {
 		go func(op func()) {
@@ -77,7 +77,7 @@ func Run(state *state.State, evHandler state.EventHandler) {
 			op()
 		}(op)
 	}
-	
+
 	// Wait for the G's to report they are running.
 	for i := 0; i < g; i++ {
 		<-hasStarted
@@ -91,14 +91,14 @@ func Run(state *state.State, evHandler state.EventHandler) {
 func (w *Worker) Shutdown() {
 	w.evHandler("Worker: Shutdown: started")
 	defer w.evHandler("Worker: Shutdown: completed")
-	
+
 	w.evHandler("Worker: Shutdown: stop ticker")
 	w.ticker.Stop()
-	
+
 	w.evHandler("Worker: Shutdown: signal cancel mining")
 	done := w.SignalCancelMining()
 	done()
-	
+
 	w.evHandler("Worker: Shutdown: terminate goroutines")
 	close(w.shut)
 	w.wg.Wait()
@@ -111,7 +111,7 @@ func (w *Worker) SignalStartMining() {
 		w.evHandler("state: MinePeerBlock: accepting blocks turned off")
 		return
 	}
-	
+
 	select {
 	case w.startMining <- true:
 	default:
@@ -125,13 +125,13 @@ func (w *Worker) SignalStartMining() {
 // mining operation takes place.
 func (w *Worker) SignalCancelMining() (done func()) {
 	wait := make(chan struct{})
-	
+
 	select {
 	case w.cancelMining <- wait:
 	default:
 	}
 	w.evHandler("Worker: SignalCancelMining: MINING: CANCEL: signaled")
-	
+
 	return func() { close(wait) }
 }
 
@@ -163,7 +163,7 @@ func (w *Worker) writePeerBlocks(pr peer.Peer) error {
 	w.evHandler("Worker: runPeerUpdatesOperation: writePeerBlocks: found blocks[%d]", len(blocks))
 
 	for _, block := range blocks {
-		w.evHandler("Worker: runPeerUpdatesOperation: writePeerBlocks: prevBlk[%s]: newBlk[%s]: numTxs[%d]", block.Header.ParentHash, block.Hash(), len(block.Transactions))
+		w.evHandler("Worker: runPeerUpdatesOperation: writePeerBlocks: prevBlk[%s]: newBlk[%s]: numTxs[%d]", block.Header.PrevBlockHash, block.Hash(), len(block.Transactions))
 
 		if err := w.state.MinePeerBlock(block); err != nil {
 			return err
@@ -188,7 +188,7 @@ func (w *Worker) isShutdown() bool {
 // send is a helper function to send an HTTP request to a node.
 func send(method, url string, dataSend any, dataRcv any) error {
 	var req *http.Request
-	
+
 	switch {
 	case dataSend != nil:
 		data, err := json.Marshal(dataSend)
@@ -199,7 +199,7 @@ func send(method, url string, dataSend any, dataRcv any) error {
 		if err != nil {
 			return err
 		}
-	
+
 	default:
 		var err error
 		req, err = http.NewRequest(method, url, nil)
@@ -207,18 +207,18 @@ func send(method, url string, dataSend any, dataRcv any) error {
 			return err
 		}
 	}
-	
+
 	var client http.Client
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode == http.StatusNoContent {
 		return nil
 	}
-	
+
 	if resp.StatusCode != http.StatusOK {
 		msg, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -226,12 +226,12 @@ func send(method, url string, dataSend any, dataRcv any) error {
 		}
 		return errors.New(string(msg))
 	}
-	
+
 	if dataRcv != nil {
 		if err := json.NewDecoder(resp.Body).Decode(dataRcv); err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }

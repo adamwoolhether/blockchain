@@ -11,12 +11,12 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	
+
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // ZeroHash represents a hash code of zeros.
-const ZeroHash string = "00000000000000000000000000000000"
+const ZeroHash string = "0000000000000000000000000000000000000000000000000000000000000000"
 
 // ardanID is the arbitrary number for signing messages. This will make it
 // clear that the signature comes from the Ardan blockchain.
@@ -31,9 +31,9 @@ func Hash(value any) string {
 	if err != nil {
 		return ZeroHash
 	}
-	
+
 	hash := sha256.Sum256(data)
-	
+
 	return hex.EncodeToString(hash[:])
 }
 
@@ -44,55 +44,55 @@ func Sign(value any, privateKey *ecdsa.PrivateKey) (v, r, s *big.Int, err error)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	
+
 	// Sign the hash with the private kry to produce a signature.
 	sig, err := crypto.Sign(data, privateKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	
+
 	// Convert the 65 byte signature into the [R|S|V] format.
 	v, r, s = toSignatureValues(sig)
-	
+
 	return v, r, s, nil
 }
 
 // VerifySignature verifies the signature conforms to our standards and
 // is associated with the data claimed to be signed.
 func VerifySignature(value any, v, r, s *big.Int) error {
-	
+
 	// Check the recovery is is either 0 or 1.
 	uintV := v.Uint64() - ardanID
 	if uintV != 0 && uintV != 1 {
 		return errors.New("invalid recovery id")
 	}
-	
+
 	// Check the signature values are valid.
 	if !crypto.ValidateSignatureValues(byte(uintV), r, s, false) {
 		return errors.New("invalid signature values")
 	}
-	
+
 	// Prepare the transaction for recovery and validation.
 	tx, err := stamp(value)
 	if err != nil {
 		return err
 	}
-	
+
 	// Convert the [R|S|V] format into the original 65 bytes.
 	sig := ToSignatureBytes(v, r, s)
-	
+
 	// Capture the uncompressed public key assiciated with this signature.
 	sigPublicKey, err := crypto.Ecrecover(tx, sig)
 	if err != nil {
 		return fmt.Errorf("ecrecover, %w", err)
 	}
-	
+
 	// Check that the given public key created the signature over the data.
 	rs := sig[:crypto.RecoveryIDOffset]
 	if !crypto.VerifySignature(sigPublicKey, tx, rs) {
 		return errors.New("invalid signature")
 	}
-	
+
 	return nil
 }
 
@@ -103,10 +103,10 @@ func FromAddress(value any, v, r, s *big.Int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Convert the [R|S|V] format into the original 65 bytes.
 	sig := ToSignatureBytes(v, r, s)
-	
+
 	// Validate the signature since there can be conversion issues between
 	// [R|S|V] to []bytes. Leading 0's are truncated by big package.
 	var sigPublicKey []byte
@@ -115,17 +115,17 @@ func FromAddress(value any, v, r, s *big.Int) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		
+
 		rs := sig[:crypto.RecoveryIDOffset]
 		if !crypto.VerifySignature(sigPublicKey, tx, rs) {
 			return "", errors.New("invalid signature")
 		}
 	}
-	
+
 	// Capture the public key associated with this signature.
 	x, y := elliptic.Unmarshal(crypto.S256(), sigPublicKey)
 	publicKey := ecdsa.PublicKey{Curve: crypto.S256(), X: x, Y: y}
-	
+
 	// Extract the account address from the public key.
 	return crypto.PubkeyToAddress(publicKey).String(), nil
 }
@@ -145,20 +145,20 @@ func stamp(value any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Hash the transaction data into a 32 byte array. This will
 	// provide a data length consistency with all transaction.
 	txHash := crypto.Keccak256Hash(data)
-	
+
 	// Convert the stamp into a slice of bytes. This stamp is
 	// used so signatures we produce when signing transactions
 	// are always unique to the Ardan blockchain.
 	stamp := []byte("\x19Ardan Signed Message:\n32")
-	
+
 	// Hash the stamp and txHash together in a final 32 byte
 	// array that represents the transaction data.
 	tx := crypto.Keccak256Hash(stamp, txHash.Bytes())
-	
+
 	return tx.Bytes(), nil
 }
 
@@ -167,7 +167,7 @@ func toSignatureValues(sig []byte) (v, r, s *big.Int) {
 	r = new(big.Int).SetBytes(sig[:32])
 	s = new(big.Int).SetBytes(sig[32:64])
 	v = new(big.Int).SetBytes([]byte{sig[64] + ardanID})
-	
+
 	return v, r, s
 }
 
@@ -175,23 +175,23 @@ func toSignatureValues(sig []byte) (v, r, s *big.Int) {
 // with the removal of the ardanID.
 func ToSignatureBytes(v, r, s *big.Int) []byte {
 	sig := make([]byte, crypto.SignatureLength)
-	
+
 	rBytes := r.Bytes()
 	if len(rBytes) == 31 {
 		copy(sig[1:], rBytes)
 	} else {
 		copy(sig, rBytes)
 	}
-	
+
 	sBytes := s.Bytes()
 	if len(sBytes) == 31 {
 		copy(sig[33:], sBytes)
 	} else {
 		copy(sig[32:], sBytes)
 	}
-	
+
 	sig[64] = byte(v.Uint64() - ardanID)
-	
+
 	return sig
 }
 
@@ -200,6 +200,6 @@ func ToSignatureBytes(v, r, s *big.Int) []byte {
 func ToSignatureBytesWithArdanID(v, r, s *big.Int) []byte {
 	sig := ToSignatureBytes(v, r, s)
 	sig[64] = byte(v.Uint64())
-	
+
 	return sig
 }
