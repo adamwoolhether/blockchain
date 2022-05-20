@@ -18,7 +18,7 @@ SHELL := $(shell echo ${SHELL})
 up:
 	go run app/services/node/main.go -race | go run app/tooling/logfmt/main.go
 up2:
-	go run app/services/node/main.go -race --web-public-host 0.0.0.0:8180 --web-private-host 0.0.0.0:9180 --node-miner-name=miner2 --node-db-path zblock/blocks2.db | go run app/tooling/logfmt/main.go
+	go run app/services/node/main.go -race --web-debug-host 0.0.0.0:7181 --web-public-host 0.0.0.0:8180 --web-private-host 0.0.0.0:9180 --state-miner-name=miner2 --state-db-path zblock/blocks2.db | go run app/tooling/logfmt/main.go
 
 down:
 	kill -INT $(shell ps | grep "main -race" | grep -v grep | sed -n 1,1p | cut -c1-5)
@@ -29,6 +29,16 @@ clear-db:
 
 key:
 	go run app/wallet/cli/main.go generate
+
+# ######################################################################################################################
+# Docker support
+
+docker-up:
+	docker compose -f zarf/docker/docker-compose.yaml up
+docker-down:
+	docker compose -f zarf/docker/docker-compose.yaml down
+docker-logs:
+	docker compose -f zarf/docker/docker-compose.yaml logs
 
 load:
 	go run app/wallet/cli/main.go send adam --to "0xA211f66bD829205102c33cAD3A212D7CaD66025D" --nonce 1 --value 450 --tip 15

@@ -2,7 +2,7 @@ package peer
 
 import "sync"
 
-// Peer represents information about a Node in the network.
+// Peer represents information about a State in the network.
 type Peer struct {
 	Host string
 }
@@ -45,26 +45,30 @@ func NewSet() *Set {
 }
 
 // Add adds a new node to the set.
-func (ps *Set) Add(peer Peer) {
+func (ps *Set) Add(peer Peer) bool {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
-	
-	if _, exists := ps.set[peer]; !exists {
+
+	_, exists := ps.set[peer]
+	if !exists {
 		ps.set[peer] = struct{}{}
+		return true
 	}
+
+	return false
 }
 
 // Copy returns a list of known peers.
 func (ps *Set) Copy(host string) []Peer {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
-	
+
 	var peers []Peer
 	for peer := range ps.set {
 		if !peer.Match(host) {
 			peers = append(peers, peer)
 		}
 	}
-	
+
 	return peers
 }
