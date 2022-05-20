@@ -9,7 +9,7 @@ import (
 	"crypto/sha256"
 	"hash"
 	"testing"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/merkle"
 )
 
@@ -24,7 +24,7 @@ func (d Data) Hash() ([]byte, error) {
 	if _, err := h.Write([]byte(d.x)); err != nil {
 		return nil, err
 	}
-	
+
 	return h.Sum(nil), nil
 }
 
@@ -176,29 +176,29 @@ func Test_MerklePath(t *testing.T) {
 			t.Errorf("[case:%d] error: unexpected error: %v", table[i].testCaseID, err)
 		}
 		for j := 0; j < len(table[i].data); j++ {
-			merklePath, index, _ := tree.MerklePath(table[i].data[j])
-			
-			hash, err := tree.Leaves[j].CalculateNodeHash()
+			merkleProof, index, _ := tree.MerkleProof(table[i].data[j])
+
+			hsh, err := tree.Leaves[j].CalculateNodeHash()
 			if err != nil {
 				t.Errorf("[case:%d] error: calculateNodeHash error: %v", table[i].testCaseID, err)
 			}
 			h := sha256.New()
-			for k := 0; k < len(merklePath); k++ {
+			for k := 0; k < len(merkleProof); k++ {
 				if index[k] == 1 {
-					hash = append(hash, merklePath[k]...)
+					hsh = append(hsh, merkleProof[k]...)
 				} else {
-					hash = append(merklePath[k], hash...)
+					hsh = append(merkleProof[k], hsh...)
 				}
-				if _, err := h.Write(hash); err != nil {
+				if _, err := h.Write(hsh); err != nil {
 					t.Errorf("[case:%d] error: Write error: %v", table[i].testCaseID, err)
 				}
-				hash, err = calHash(hash, table[i].hashStrategy)
+				hsh, err = calHash(hsh, table[i].hashStrategy)
 				if err != nil {
 					t.Errorf("[case:%d] error: calHash error: %v", table[i].testCaseID, err)
 				}
 			}
-			if !bytes.Equal(tree.MerkleRoot, hash) {
-				t.Errorf("[case:%d] error: expected hash equal to %v got %v", table[i].testCaseID, hash, tree.MerkleRoot)
+			if !bytes.Equal(tree.MerkleRoot, hsh) {
+				t.Errorf("[case:%d] error: expected hsh equal to %v got %v", table[i].testCaseID, hsh, tree.MerkleRoot)
 			}
 		}
 	}
@@ -211,7 +211,7 @@ func calHash(hash []byte, hashStrategy func() hash.Hash) ([]byte, error) {
 	if _, err := h.Write(hash); err != nil {
 		return nil, err
 	}
-	
+
 	return h.Sum(nil), nil
 }
 

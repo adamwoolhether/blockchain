@@ -50,15 +50,15 @@ func NewTree[T Hashable[T]](data []T, options ...func(t *Tree[T])) (*Tree[T], er
 	t := Tree[T]{
 		hashStrategy: defaultHashStrategy,
 	}
-	
+
 	for _, option := range options {
 		option(&t)
 	}
-	
+
 	if err := t.GenerateTree(data); err != nil {
 		return nil, err
 	}
-	
+
 	return &t, nil
 }
 
@@ -69,14 +69,14 @@ func (t *Tree[T]) GenerateTree(values []T) error {
 	if len(values) == 0 {
 		return errors.New("can't construct tree with no data")
 	}
-	
+
 	var leaves []*Node[T]
 	for _, value := range values {
 		hash, err := value.Hash()
 		if err != nil {
 			return err
 		}
-		
+
 		leaves = append(leaves, &Node[T]{
 			Hash:  hash,
 			Value: value,
@@ -84,7 +84,7 @@ func (t *Tree[T]) GenerateTree(values []T) error {
 			Tree:  t,
 		})
 	}
-	
+
 	if len(leaves)%2 == 1 {
 		duplicate := &Node[T]{
 			Hash:  leaves[len(leaves)-1].Hash,
@@ -95,16 +95,16 @@ func (t *Tree[T]) GenerateTree(values []T) error {
 		}
 		leaves = append(leaves, duplicate)
 	}
-	
+
 	root, err := buildIntermediate(leaves, t)
 	if err != nil {
 		return err
 	}
-	
+
 	t.Root = root
 	t.Leaves = leaves
 	t.MerkleRoot = root.Hash
-	
+
 	return nil
 }
 
@@ -115,40 +115,41 @@ func (t *Tree[T]) RebuildTree() error {
 	for _, node := range t.Leaves {
 		data = append(data, node.Value)
 	}
-	
+
 	if err := t.GenerateTree(data); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
-// MerklePath gets the tree path and indexes (left leaf or right leaf)
-// // for the specified data.
-func (t *Tree[T]) MerklePath(data T) ([][]byte, []int64, error) {
+// MerkleProof returns the set of hashes and the order of joining
+// those hashes for proving a transaction is in the tree.
+func (t *Tree[T]) MerkleProof(data T) ([][]byte, []int64, error) {
 	for _, node := range t.Leaves {
 		if !node.Value.Equals(data) {
 			continue
 		}
-		
+
+		var merkleProof [][]byte
+		var order []int64
 		nodeParent := node.Parent
-		var merklePath [][]byte
-		var index []int64
+
 		for nodeParent != nil {
 			if bytes.Equal(nodeParent.Left.Hash, node.Hash) {
-				merklePath = append(merklePath, nodeParent.Right.Hash)
-				index = append(index, 1) // right leaf
+				merkleProof = append(merkleProof, nodeParent.Right.Hash)
+				order = append(order, 1) // right leaf
 			} else {
-				merklePath = append(merklePath, nodeParent.Left.Hash)
-				index = append(index, 0) // left leaf
+				merkleProof = append(merkleProof, nodeParent.Left.Hash)
+				order = append(order, 0) // left leaf
 			}
 			node = nodeParent
 			nodeParent = nodeParent.Parent
 		}
-		
-		return merklePath, index, nil
+
+		return merkleProof, order, nil
 	}
-	
+
 	return nil, nil, errors.New("unable to find data in tree")
 }
 
@@ -160,11 +161,11 @@ func (t *Tree[T]) VerifyTree() error {
 	if err != nil {
 		return err
 	}
-	
+
 	if bytes.Equal(t.MerkleRoot, calculatedMerkleRoot) {
 		return errors.New("root hash invalid")
 	}
-	
+
 	return nil
 }
 
@@ -177,40 +178,35 @@ func (t *Tree[T]) VerifyData(data T) error {
 		if !node.Value.Equals(data) {
 			continue
 		}
-		
+
 		currentParent := node.Parent
 		for currentParent != nil {
 			rightBytes, err := currentParent.Right.CalculateNodeHash()
 			if err != nil {
 				return err
 			}
-			
+
 			leftBytes, err := currentParent.Left.CalculateNodeHash()
 			if err != nil {
 				return err
 			}
-			
+
 			h := t.hashStrategy()
 			if _, err := h.Write(append(leftBytes, rightBytes...)); err != nil {
 				return err
 			}
-			
+
 			if !bytes.Equal(h.Sum(nil), currentParent.Hash) {
 				return errors.New("markle root is not equivalent to the merkle root calculated on the critical path")
 			}
-			
+
 			currentParent = currentParent.Parent
 		}
-		
+
 		return nil
 	}
-	
-	return errors.New("markle root is not equivalent to the merkle root calculated on the critical path")
-}
 
-// MerkleRootHex provides the hexidecimal encoding of the merkle root.
-func (t *Tree[T]) MerkleRootHex() string {
-	return hex.EncodeToString(t.MerkleRoot)
+	return errors.New("markle root is not equivalent to the merkle root calculated on the critical path")
 }
 
 // Values returns a slice of unique values stores in the tree. The last
@@ -221,12 +217,12 @@ func (t *Tree[T]) Values() []T {
 	for _, tx := range t.Leaves {
 		values = append(values, tx.Value)
 	}
-	
+
 	l := len(t.Leaves)
 	if bytes.Equal(t.Leaves[l-1].Hash, t.Leaves[l-2].Hash) {
 		return values[:l-1]
 	}
-	
+
 	return values
 }
 
@@ -234,12 +230,12 @@ func (t *Tree[T]) Values() []T {
 // Only leaf nodes are included in the output.
 func (t *Tree[T]) String() string {
 	s := ""
-	
+
 	for _, l := range t.Leaves {
 		s += fmt.Sprint(l)
 		s += "\n"
 	}
-	
+
 	return s
 }
 
@@ -265,22 +261,22 @@ func (n *Node[T]) verifyNode() ([]byte, error) {
 	if n.leaf {
 		return n.Value.Hash()
 	}
-	
+
 	rightBytes, err := n.Right.verifyNode()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	leftBytes, err := n.Left.verifyNode()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	h := n.Tree.hashStrategy()
 	if _, err := h.Write(append(leftBytes, rightBytes...)); err != nil {
 		return nil, err
 	}
-	
+
 	return h.Sum(nil), nil
 }
 
@@ -289,12 +285,12 @@ func (n *Node[T]) CalculateNodeHash() ([]byte, error) {
 	if n.leaf {
 		return n.Value.Hash()
 	}
-	
+
 	h := n.Tree.hashStrategy()
 	if _, err := h.Write(append(n.Left.Hash, n.Right.Hash...)); err != nil {
 		return nil, err
 	}
-	
+
 	return h.Sum(nil), nil
 }
 
@@ -305,39 +301,44 @@ func (n *Node[T]) String() string {
 
 // /////////////////////////////////////////////////////////////////
 
+// ToHex converts a hash in bytes to a hex encoded string.
+func ToHex(hash []byte) string {
+	return fmt.Sprintf("0x%s", hex.EncodeToString(hash))
+}
+
 // buildIntermediate is a helper function that for a given list of leaf nodes
 // constructs the intermediate and root levels of the tree. It returns the
 // resulting root node of the tree.
 func buildIntermediate[T Hashable[T]](nl []*Node[T], t *Tree[T]) (*Node[T], error) {
 	var nodes []*Node[T]
-	
+
 	for i := 0; i < len(nl); i += 2 {
 		left, right := i, i+1
 		if i+1 == len(nl) {
 			right = i
 		}
-		
+
 		h := t.hashStrategy()
 		chash := append(nl[left].Hash, nl[right].Hash...)
 		if _, err := h.Write(chash); err != nil {
 			return nil, err
 		}
-		
+
 		n := Node[T]{
 			Left:  nl[left],
 			Right: nl[right],
 			Hash:  h.Sum(nil),
 			Tree:  t,
 		}
-		
+
 		nodes = append(nodes, &n)
 		nl[left].Parent = &n
 		nl[right].Parent = &n
-		
+
 		if len(nl) == 2 {
 			return &n, nil
 		}
 	}
-	
+
 	return buildIntermediate(nodes, t)
 }

@@ -3,7 +3,6 @@ package public
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"time"
@@ -14,6 +13,7 @@ import (
 
 	v1 "github.com/adamwoolhether/blockchain/business/web/v1"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/merkle"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/events"
 	"github.com/adamwoolhether/blockchain/foundation/nameservice"
@@ -195,18 +195,13 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 				return err
 			}
 
-			rawProof, idx, err := blk.Transactions.MerklePath(tran)
+			rawProof, order, err := blk.Transactions.MerkleProof(tran)
 			if err != nil {
 				return err
 			}
 			proof := make([]string, len(rawProof))
 			for i, rp := range rawProof {
-				proof[i] = "0x" + hex.EncodeToString(rp)
-			}
-
-			hash, err := tran.Hash()
-			if err != nil {
-				return err
+				proof[i] = "0x" + merkle.ToHex(rp)
 			}
 
 			txs[i] = tx{
@@ -221,9 +216,8 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 				TimeStamp:   tran.TimeStamp,
 				Gas:         tran.Gas,
 				Sig:         tran.SignatureString(),
-				Hash:        "0x" + hex.EncodeToString(hash),
 				Proof:       proof,
-				Index:       idx,
+				ProofOrder:  order,
 			}
 		}
 
@@ -234,7 +228,7 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 			Number:       blk.Header.Number,
 			TimeStamp:    blk.Header.TimeStamp,
 			Nonce:        blk.Header.Nonce,
-			MerkleRoot:   "0x" + blk.Header.MerkleRoot,
+			MerkleRoot:   blk.Header.MerkleRoot,
 			Transactions: txs,
 		}
 
