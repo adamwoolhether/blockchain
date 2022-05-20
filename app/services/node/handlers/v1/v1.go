@@ -4,10 +4,10 @@ package v1
 
 import (
 	"net/http"
-	
+
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
-	
+
 	"github.com/adamwoolhether/blockchain/app/services/node/handlers/v1/private"
 	"github.com/adamwoolhether/blockchain/app/services/node/handlers/v1/public"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
@@ -36,7 +36,7 @@ func PublicRoutes(app *web.App, cfg Config) {
 		NS:    cfg.NS,
 		Evts:  cfg.Evts,
 	}
-	
+
 	app.Handle(http.MethodGet, version, "/events", pbl.Events)
 	app.Handle(http.MethodGet, version, "/genesis/list", pbl.Genesis)
 	app.Handle(http.MethodGet, version, "/accounts/list", pbl.Accounts)
@@ -55,10 +55,10 @@ func PrivateRoutes(app *web.App, cfg Config) {
 		State: cfg.State,
 		NS:    cfg.NS,
 	}
-	
+
 	app.Handle(http.MethodGet, version, "/node/status", prv.Status)
 	app.Handle(http.MethodGet, version, "/node/block/list/:from/:to", prv.BlocksByNumber)
-	app.Handle(http.MethodPost, version, "/node/block/next", prv.MinePeerBlock)
+	app.Handle(http.MethodPost, version, "/node/block/next", prv.ProposeBlock)
 	app.Handle(http.MethodPost, version, "/node/tx/submit", prv.SubmitNodeTransaction)
 	app.Handle(http.MethodGet, version, "/node/tx/list", prv.Mempool)
 }

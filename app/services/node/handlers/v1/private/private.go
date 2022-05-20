@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	
+
 	"go.uber.org/zap"
-	
+
 	v1 "github.com/adamwoolhether/blockchain/business/web/v1"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
@@ -31,66 +31,66 @@ func (h Handlers) SubmitNodeTransaction(ctx context.Context, w http.ResponseWrit
 	if err != nil {
 		return web.NewShutdownError("web value missing from context")
 	}
-	
+
 	var tx database.BlockTx
 	if err := web.Decode(r, &tx); err != nil {
 		return fmt.Errorf("unable to decode payload: %w", err)
 	}
-	
+
 	h.Log.Infow("add user tran", "traceid", v.TraceID, "from:nonce", tx, "to", tx.ToID, "value", tx.Value, "tip", tx.Tip)
 	if err := h.State.UpsertNodeTransaction(tx); err != nil {
 		return v1.NewRequestError(err, http.StatusBadRequest)
 	}
-	
+
 	resp := struct {
 		Status string `json:"status"`
 	}{
 		Status: "transactions added to mempool",
 	}
-	
+
 	return web.Respond(ctx, w, resp, http.StatusOK)
 }
 
-// MinePeerBlock accepts a newly mined block from a peer, validates it,
+// ProposeBlock takes a block from a peer, validates it,
 // and adds it to the blockchain.
-func (h Handlers) MinePeerBlock(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+func (h Handlers) ProposeBlock(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	var blockFS database.BlockFS
 	if err := web.Decode(r, &blockFS); err != nil {
 		return fmt.Errorf("unable to decode payload: %w", err)
 	}
-	
+
 	block, err := database.ToBlock(blockFS)
 	if err != nil {
 		return fmt.Errorf("unable to decode block: %w", err)
 	}
-	
-	if err := h.State.MinePeerBlock(block); err != nil {
+
+	if err := h.State.ValidateProposedBlock(block); err != nil {
 		if errors.Is(err, database.ErrChainForked) {
 			h.State.Resync()
 		}
-		
+
 		return v1.NewRequestError(errors.New("block not accepted"), http.StatusNotAcceptable)
 	}
-	
+
 	resp := struct {
 		Status string `json:"status"`
 	}{
 		Status: "accepted",
 	}
-	
+
 	return web.Respond(ctx, w, resp, http.StatusOK)
 }
 
 // Status returns the current status of the node.
 func (h Handlers) Status(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	latestBlock := h.State.RetrieveLatestBlock()
-	
+
 	status := peer.Status{
 		LatestBlockHash:   latestBlock.Hash(),
 		LatestBlockNumber: latestBlock.Header.Number,
 		KnownPeers:        h.State.RetrieveKnownPeers(),
 	}
-	
+
 	return web.Respond(ctx, w, status, http.StatusOK)
 }
 
@@ -100,12 +100,12 @@ func (h Handlers) BlocksByNumber(ctx context.Context, w http.ResponseWriter, r *
 	if fromStr == "latest" || fromStr == "" {
 		fromStr = fmt.Sprintf("%d", state.QueryLatest)
 	}
-	
+
 	toStr := web.Param(r, "to")
 	if toStr == "latest" || toStr == "" {
 		toStr = fmt.Sprintf("%d", state.QueryLatest)
 	}
-	
+
 	from, err := strconv.ParseUint(fromStr, 10, 64)
 	if err != nil {
 		return v1.NewRequestError(err, http.StatusBadRequest)
@@ -114,27 +114,27 @@ func (h Handlers) BlocksByNumber(ctx context.Context, w http.ResponseWriter, r *
 	if err != nil {
 		return v1.NewRequestError(err, http.StatusBadRequest)
 	}
-	
+
 	if from > to {
 		return v1.NewRequestError(errors.New("from greater than to"), http.StatusBadRequest)
 	}
-	
+
 	blocks := h.State.QueryBlocksByNumber(from, to)
 	if len(blocks) == 0 {
 		return web.Respond(ctx, w, nil, http.StatusNoContent)
 	}
-	
+
 	blocksFS := make([]database.BlockFS, len(blocks))
 	for i, block := range blocks {
 		blocksFS[i] = database.NewBlockFS(block)
 	}
-	
+
 	return web.Respond(ctx, w, blocksFS, http.StatusOK)
 }
 
 // Mempool returns the set of uncommitted transactions.
 func (h Handlers) Mempool(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	txs := h.State.RetrieveMempool()
-	
+
 	return web.Respond(ctx, w, txs, http.StatusOK)
 }
