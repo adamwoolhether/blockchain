@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
@@ -27,14 +27,14 @@ var sendCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		acctName := args[0]
-		
+
 		path, err := rootCmd.Flags().GetString("path")
 		if err != nil {
 			return err
 		}
-		
+
 		user := keyPath(acctName, path)
-		
+
 		return runSend(user)
 	},
 }
@@ -54,32 +54,32 @@ func runSend(user string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	toAccount, err := database.ToAccountID(to)
 	if err != nil {
 		return err
 	}
-	
-	userTx, err := database.NewUserTx(nonce, toAccount, value, tip, data)
+
+	tx, err := database.NewUserTx(nonce, toAccount, value, tip, data)
 	if err != nil {
 		return err
 	}
-	
-	walletTx, err := userTx.Sign(privateKey)
+
+	walletTx, err := tx.Sign(privateKey)
 	if err != nil {
 		return err
 	}
-	
+
 	data, err := json.Marshal(walletTx)
 	if err != nil {
 		return err
 	}
-	
+
 	resp, err := http.Post(fmt.Sprintf("%s/v1/tx/submit", url), "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	return nil
 }

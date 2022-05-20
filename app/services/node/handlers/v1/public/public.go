@@ -67,7 +67,7 @@ func (h Handlers) Events(ctx context.Context, w http.ResponseWriter, r *http.Req
 	}
 }
 
-// SubmitWalletTransaction adds a new user transaction to the mempool.
+// SubmitWalletTransaction adds a new transaction to the mempool.
 func (h Handlers) SubmitWalletTransaction(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	v, err := web.GetValues(ctx)
 	if err != nil {
@@ -79,7 +79,7 @@ func (h Handlers) SubmitWalletTransaction(ctx context.Context, w http.ResponseWr
 		return fmt.Errorf("unable to decode payload: %w", err)
 	}
 
-	h.Log.Infow("add user tran", "traceid", v.TraceID, "from:nonce", signedTx, "to", signedTx.ToID, "value", signedTx.Value, "tip", signedTx.Tip)
+	h.Log.Infow("add tran", "traceid", v.TraceID, "from:nonce", signedTx, "to", signedTx.ToID, "value", signedTx.Value, "tip", signedTx.Tip)
 	if err := h.State.UpsertWalletTransaction(signedTx); err != nil {
 		return v1.NewRequestError(err, http.StatusBadRequest)
 	}
@@ -228,7 +228,7 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 			Number:        blk.Header.Number,
 			TimeStamp:     blk.Header.TimeStamp,
 			Nonce:         blk.Header.Nonce,
-			MerkleRoot:    blk.Header.MerkleRoot,
+			TransRoot:     blk.Header.TransRoot,
 			Transactions:  txs,
 		}
 

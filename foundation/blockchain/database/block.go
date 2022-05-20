@@ -21,11 +21,11 @@ var ErrChainForked = errors.New("blockchain forked, start resync")
 type BlockHeader struct {
 	PrevBlockHash string    `json:"prev_block_hash"` // Bitcoin: Hash of the previous block in the chain.
 	TimeStamp     uint64    `json:"time_stamp"`      // Bitcoin: Time the block was mined.
-	MerkleRoot    string    `json:"merkle_root"`     // Bitcoin: Represents the merkle tree root hash for the transactions in this block.
 	Nonce         uint64    `json:"nonce"`           // Bitcoin: Value identified to solve the hash solution.
 	Beneficiary   AccountID `json:"miner_account"`   // Ethereum: The account of the miner who mined the block.
 	Difficulty    int       `json:"difficulty"`      // Ethereum: Number of 0's needed to solve the hash solution.
 	Number        uint64    `json:"number"`          // Ethereum: The block number in the chain.
+	TransRoot     string    `json:"trans_root"`      // Bitcoin/Ethereum: Represents the merkle tree root hash for the transactions in this block.
 }
 
 // Block struct represents a grup of transactions batched together.
@@ -58,7 +58,7 @@ func POW(ctx context.Context, beneficiary AccountID, difficulty int, prevBlock B
 			Beneficiary:   beneficiary,
 			Difficulty:    difficulty,
 			Number:        prevBlock.Header.Number + 1,
-			MerkleRoot:    tree.MerkleRootHex(),
+			TransRoot:     tree.MerkleRootHex(),
 			TimeStamp:     uint64(time.Now().UTC().Unix()),
 		},
 		Transactions: tree,
@@ -195,8 +195,8 @@ func (b Block) ValidateBlock(previousBlock Block, evHandler func(v string, args 
 
 	evHandler("storage: ValidateBlock: validate: blk[%d]: check: merkle root does match transactions", b.Header.Number)
 
-	if b.Header.MerkleRoot != b.Transactions.MerkleRootHex() {
-		return fmt.Errorf("merkle root does not match transactions, got %s, exp %s", merkle.ToHex(b.Transactions.MerkleRoot), b.Header.MerkleRoot)
+	if b.Header.TransRoot != b.Transactions.MerkleRootHex() {
+		return fmt.Errorf("merkle root does not match transactions, got %s, exp %s", b.Transactions.MerkleRootHex(), b.Header.TransRoot)
 	}
 
 	return nil

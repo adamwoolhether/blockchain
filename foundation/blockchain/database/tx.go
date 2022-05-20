@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"math/big"
 	"time"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/signature"
 )
 
-// UserTx is the transactional data submitted by a user.
-type UserTx struct {
+// Tx is the transactional data submitted by a user.
+type Tx struct {
 	Nonce uint      `json:"nonce"` // *Unique* id for the transaction supplied by the user.
 	ToID  AccountID `json:"to"`    // AccountID receiving the transactional benefit.
 	Value uint      `json:"value"` // Monetary value received from the transaction.
@@ -22,52 +22,53 @@ type UserTx struct {
 }
 
 // NewUserTx constructs a new user transaction.
-func NewUserTx(nonce uint, toID AccountID, value, tip uint, data []byte) (UserTx, error) {
+func NewUserTx(nonce uint, toID AccountID, value, tip uint, data []byte) (Tx, error) {
 	if !toID.IsAccountID() {
-		return UserTx{}, fmt.Errorf("to account is not properly formatted")
+		return Tx{}, fmt.Errorf("to account is not properly formatted")
 	}
-	
-	userTx := UserTx{
+
+	tx := Tx{
 		Nonce: nonce,
 		ToID:  toID,
 		Value: value,
 		Tip:   tip,
 		Data:  data,
 	}
-	
-	return userTx, nil
+
+	return tx, nil
 }
 
 // Sign uses the specified private key to sign the user transaction.
-func (tx UserTx) Sign(privateKey *ecdsa.PrivateKey) (SignedTx, error) {
-	// Validate the account in case the UserTx value was hand constructed.
+func (tx Tx) Sign(privateKey *ecdsa.PrivateKey) (SignedTx, error) {
+	// Validate the to account address is a valid address.
 	if !tx.ToID.IsAccountID() {
 		return SignedTx{}, fmt.Errorf("to account is not properly formatted")
 	}
-	
+
 	// Sign the hash with the private key to produce a signature.
 	v, r, s, err := signature.Sign(tx, privateKey)
 	if err != nil {
 		return SignedTx{}, err
 	}
-	
-	// Construct the signed transaction.
+
+	// Construct the signed transaction by adding the signature
+	// in the [R|S|V] format.
 	signedTx := SignedTx{
-		UserTx: tx,
-		V:      v,
-		R:      r,
-		S:      s,
+		Tx: tx,
+		V:  v,
+		R:  r,
+		S:  s,
 	}
-	
+
 	return signedTx, nil
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// SignedTx is a signed version of the user transaction
-// used internally by the blockchain.
+// SignedTx is a signed version of the transaction. This is how clients like
+// a wallet provide transactions for inclusion into the blockchain.
 type SignedTx struct {
-	UserTx
+	Tx
 	V *big.Int `json:"v"` // Recovery identifier, either 29 or 30 with ardanID.
 	R *big.Int `json:"r"` // First coordinate of the ECDSA signature.
 	S *big.Int `json:"s"` // Second coordinate of the ECDSA signature.
@@ -77,21 +78,21 @@ type SignedTx struct {
 // standards and is associated with the data claimed to be signed. It also
 // checks the format of the account.
 func (tx SignedTx) Validate() error {
-	if err := signature.VerifySignature(tx.UserTx, tx.V, tx.R, tx.S); err != nil {
-		return err
-	}
-	
 	if !tx.ToID.IsAccountID() {
 		return errors.New("invalid accoount for to account")
 	}
-	
+
+	if err := signature.VerifySignature(tx.Tx, tx.V, tx.R, tx.S); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// FromAccount extracts the account that signed the transaction.
+// FromAccount extracts the account id that signed the transaction.
 func (tx SignedTx) FromAccount() (AccountID, error) {
-	address, err := signature.FromAddress(tx.UserTx, tx.V, tx.R, tx.S)
-	
+	address, err := signature.FromAddress(tx.Tx, tx.V, tx.R, tx.S)
+
 	return AccountID(address), err
 }
 
@@ -106,13 +107,13 @@ func (tx SignedTx) String() string {
 	if err != nil {
 		from = "unknown"
 	}
-	
+
 	return fmt.Sprintf("%s:%d", from, tx.Nonce)
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BlockTx represents the transaction recorded inside the blockchain.
+// BlockTx represents the transaction as it's recorded inside the blockchain.
 type BlockTx struct {
 	SignedTx
 	TimeStamp uint64 `json:"timestamp"` // The time the transaction was received.
@@ -131,7 +132,7 @@ func NewBlockTx(signedTx SignedTx, gas uint) BlockTx {
 // Hash implements the merkle Hashtable interface for providing a hash of a block transaction.
 func (tx BlockTx) Hash() ([]byte, error) {
 	str := signature.Hash(tx)
-	
+
 	return hex.DecodeString(str)
 }
 
@@ -141,6 +142,6 @@ func (tx BlockTx) Hash() ([]byte, error) {
 func (tx BlockTx) Equals(otherTx BlockTx) bool {
 	txSig := signature.ToSignatureBytes(tx.V, tx.R, tx.S)
 	otherTxSig := signature.ToSignatureBytes(otherTx.V, otherTx.R, otherTx.S)
-	
+
 	return tx.Nonce == otherTx.Nonce && bytes.Equal(txSig, otherTxSig)
 }
