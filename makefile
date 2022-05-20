@@ -58,9 +58,20 @@ load3:
 	go run app/wallet/cli/main.go send adam --to "0x26814dA49253798250D6c00270f2A8A6BC0424b7" --nonce 5 --value 450 --tip 15
 	go run app/wallet/cli/main.go send nikki --to "0x26814dA49253798250D6c00270f2A8A6BC0424b7" --nonce 6 --value 200 --tip 15
 
-# ######################################################################################################################
+# ==============================================================================
 # Modules support
 
+deps-reset:
+	git checkout -- go.mod
+	go mod tidy
+	go mod vendor
+
 tidy:
+	go mod tidy
+	go mod vendor
+
+deps-upgrade:
+	# go get $(go list -f '{{if not (or .Main .Indirect)}}{{.Path}}{{end}}' -m all)
+	go get -u -v ./...
 	go mod tidy
 	go mod vendor
