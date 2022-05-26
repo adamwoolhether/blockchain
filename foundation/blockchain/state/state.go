@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database/storage"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
@@ -75,7 +76,7 @@ func New(cfg Config) (*State, error) {
 	}
 
 	// storage :
-	storage, err := database.NewJSONStorage(cfg.DBPath)
+	storage, err := storage.NewArdan(cfg.DBPath)
 	if err != nil {
 		return nil, err
 	}

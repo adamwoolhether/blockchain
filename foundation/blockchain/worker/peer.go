@@ -2,8 +2,6 @@ package worker
 
 import (
 	"errors"
-	"fmt"
-	"net/http"
 
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 )
@@ -34,7 +32,7 @@ func (w *Worker) runPeersOperation() {
 	for _, pr := range w.state.RetrieveKnownPeers() {
 
 		// Retrieve the status of this peer.
-		peerStatus, err := w.queryPeerStatus(pr)
+		peerStatus, err := w.state.NetRequestPeerStatus(pr)
 		if err != nil {
 			w.evHandler("Worker: runPeersOperation: queryPeerStatus: %s: ERROR: %s", pr.Host, err)
 		}
@@ -42,24 +40,6 @@ func (w *Worker) runPeersOperation() {
 		// Add new peers to this nodes list.
 		w.addNewPeers(peerStatus.KnownPeers)
 	}
-}
-
-// queryPeerStatus looks for new nodes on the blockchain by asking
-// known nodes for their peer list. New nodes are added to the list.
-func (w *Worker) queryPeerStatus(pr peer.Peer) (peer.Status, error) {
-	w.evHandler("Worker: runPeerUpdatesOperations: queryPeerStatus: started: %s", pr)
-	defer w.evHandler("Worker: runPeerUpdatesOperations: queryPeerStatus: completed: %s", pr)
-
-	url := fmt.Sprintf("%s/status", fmt.Sprintf(w.baseURL, pr.Host))
-
-	var ps peer.Status
-	if err := send(http.MethodGet, url, nil, &ps); err != nil {
-		return peer.Status{}, err
-	}
-
-	w.evHandler("Worker: runPeerUpdatesOperations: queryPeerStatus: peer-node[%s]: latest-blknum[%d]: peer-list[%s]", pr, ps.LatestBlockNumber, ps.KnownPeers)
-
-	return ps, nil
 }
 
 // addNewPeers takes the list of known peers and makes sure

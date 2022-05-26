@@ -3,11 +3,6 @@
 package worker
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"io"
-	"net/http"
 	"sync"
 	"time"
 
@@ -29,7 +24,6 @@ type Worker struct {
 	cancelMining chan chan struct{}
 	txSharing    chan database.BlockTx
 	evHandler    state.EventHandler
-	baseURL      string
 }
 
 // Run creates a Worker, registers the Worker with the state package, and
@@ -45,7 +39,6 @@ func Run(state *state.State, evHandler state.EventHandler) {
 		cancelMining: make(chan chan struct{}, 1),
 		txSharing:    make(chan database.BlockTx, maxTxShareRequests),
 		evHandler:    evHandler,
-		baseURL:      "http://%s/v1/node",
 	}
 
 	// Register this Worker with the state package
@@ -146,33 +139,6 @@ func (w *Worker) SignalShareTx(blockTx database.BlockTx) {
 	}
 }
 
-/*// writePeerBlocks queries the specified node asking for
-// blocks this node doesn't have and writes them to disk.
-func (w *Worker) writePeerBlocks(pr peer.Peer) error {
-	w.evHandler("Worker: runPeerUpdatesOperation: writePeerBlocks: started: %s", pr)
-	defer w.evHandler("Worker: runPeerUpdatesOperation: writePeerBlocks: completed: %s", pr)
-
-	from := w.state.RetrieveLatestBlock().Header.Number + 1
-	url := fmt.Sprintf("%s/block/list/%d/latest", fmt.Sprintf(w.baseURL, pr.Host), from)
-
-	var blocks []storage.Block
-	if err := send(http.MethodGet, url, nil, &blocks); err != nil {
-		return err
-	}
-
-	w.evHandler("Worker: runPeerUpdatesOperation: writePeerBlocks: found blocks[%d]", len(blocks))
-
-	for _, block := range blocks {
-		w.evHandler("Worker: runPeerUpdatesOperation: writePeerBlocks: prevBlk[%s]: newBlk[%s]: numTxs[%d]", block.Header.PrevBlockHash, block.Hash(), len(block.Transactions))
-
-		if err := w.state.MinePeerBlock(block); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}*/
-
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // isShutdown is used to test if a Shutdown has been signaled.
@@ -183,55 +149,4 @@ func (w *Worker) isShutdown() bool {
 	default:
 		return false
 	}
-}
-
-// send is a helper function to send an HTTP request to a node.
-func send(method, url string, dataSend any, dataRcv any) error {
-	var req *http.Request
-
-	switch {
-	case dataSend != nil:
-		data, err := json.Marshal(dataSend)
-		if err != nil {
-			return err
-		}
-		req, err = http.NewRequest(method, url, bytes.NewReader(data))
-		if err != nil {
-			return err
-		}
-
-	default:
-		var err error
-		req, err = http.NewRequest(method, url, nil)
-		if err != nil {
-			return err
-		}
-	}
-
-	var client http.Client
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNoContent {
-		return nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		msg, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return errors.New(string(msg))
-	}
-
-	if dataRcv != nil {
-		if err := json.NewDecoder(resp.Body).Decode(dataRcv); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

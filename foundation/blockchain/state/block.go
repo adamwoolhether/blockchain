@@ -3,8 +3,10 @@ package state
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database/storage"
 )
 
 // ErrNoTransactions is returned when a block is requested
@@ -68,10 +70,17 @@ func (s *State) MineNewBlock(ctx context.Context) (database.Block, error) {
 
 // ProcessProposedBlock takes a block received from  a peer, validates
 // it, and if it passes, writes the block the local blockchain
-func (s *State) ProcessProposedBlock(block database.Block) error {
-	s.evHandler("state: ProposeBlock: started : block[%s]", block.Hash())
-	defer s.evHandler("state: ProposeBlock: completed")
+func (s *State) ProcessProposedBlock(storageBlock storage.Block) error {
+	// Convert the network block into a database block. This action will create
+	// a merkle tree for the set of transactions required for blockchain operations.
+	block, err := storage.ToDatabaseBlock(storageBlock)
+	if err != nil {
+		return fmt.Errorf("unable to decode block: %w", err)
+	}
 
+	hash := block.Hash()
+	s.evHandler("state: ValidateProposedBlock: started: prevBlk[%s]: newBlk[%s]: numTrans[%d]", block.Header.PrevBlockHash, hash, len(block.Transactions.Values()))
+	defer s.evHandler("state: ValidateProposedBlock: completed: newBlk[%s]", hash)
 	// Validate the block and then update the blockchain database.
 	if err := s.validateUpdateDatabase(block); err != nil {
 		return err
@@ -108,7 +117,7 @@ func (s *State) validateUpdateDatabase(block database.Block) error {
 	s.evHandler("state: updateLocalState: write to disk")
 
 	// Write the new block to the chain on disk.
-	if err := s.db.Write(database.NewBlockFS(block)); err != nil {
+	if err := s.db.Write(block); err != nil {
 		return err
 	}
 	s.db.UpdateLatestBlock(block)

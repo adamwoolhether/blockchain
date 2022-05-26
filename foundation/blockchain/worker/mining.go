@@ -3,12 +3,9 @@ package worker
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net/http"
 	"sync"
 	"time"
 
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 )
 
@@ -126,33 +123,11 @@ func (w *Worker) runMiningOperation() {
 
 		// WOW, we mined a block. Propose the new block to the network.
 		// Log the error, but that's it.
-		if err := w.proposeBlockToPeers(block); err != nil {
+		if err := w.state.NetSendBlockToPeers(block); err != nil {
 			w.evHandler("Worker: runMiningOperation: MINING: proposeBlockToPeers: WARNING %s", err)
 		}
 	}()
 
 	// Wait for both G's to terminate.
 	wg.Wait()
-}
-
-// proposeBlockToPeers takes the new mined block and sends it to all know peers.
-func (w *Worker) proposeBlockToPeers(block database.Block) error {
-	w.evHandler("Worker: runMiningOperation: MINING: proposeBlockToPeers: started")
-	defer w.evHandler("Worker: runMiningOperation: MINING: proposeBlockToPeers: completed")
-
-	for _, pr := range w.state.RetrieveKnownPeers() {
-		url := fmt.Sprintf("%s/block/next", fmt.Sprintf(w.baseURL, pr.Host))
-
-		var status struct {
-			Status string `json:"status"`
-		}
-
-		if err := send(http.MethodPost, url, database.NewBlockFS(block), &status); err != nil {
-			return fmt.Errorf("%s: %s", pr.Host, err)
-		}
-
-		w.evHandler("Worker: runMiningOperation: MINING: proposeBlockToPeers: sent to peer[%s]", pr)
-	}
-
-	return nil
 }

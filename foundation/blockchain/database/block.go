@@ -220,7 +220,7 @@ func isHashSolved(difficulty uint16, hash string) bool {
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BlockFS represents what is written to the DB file.
+/*// BlockFS represents what is written to the DB file.
 type BlockFS struct {
 	Hash  string      `json:"hash"`
 	Block BlockHeader `json:"block"`
@@ -251,4 +251,4 @@ func ToBlock(blockFS BlockFS) (Block, error) {
 	}
 
 	return nb, nil
-}
+}*/

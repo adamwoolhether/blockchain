@@ -12,6 +12,7 @@ import (
 
 	v1 "github.com/adamwoolhether/blockchain/business/web/v1"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/database/storage"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/nameservice"
@@ -54,14 +55,11 @@ func (h Handlers) SubmitNodeTransaction(ctx context.Context, w http.ResponseWrit
 // ProposeBlock takes a block from a peer, validates it,
 // and adds it to the blockchain.
 func (h Handlers) ProposeBlock(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	var blockFS database.BlockFS
-	if err := web.Decode(r, &blockFS); err != nil {
-		return fmt.Errorf("unable to decode payload: %w", err)
-	}
 
-	block, err := database.ToBlock(blockFS)
-	if err != nil {
-		return fmt.Errorf("unable to decode block: %w", err)
+	// Decode the JSON in the post call into a file system block.
+	var block storage.Block
+	if err := web.Decode(r, &block); err != nil {
+		return fmt.Errorf("unable to decode payload: %w", err)
 	}
 
 	if err := h.State.ProcessProposedBlock(block); err != nil {
@@ -124,12 +122,12 @@ func (h Handlers) BlocksByNumber(ctx context.Context, w http.ResponseWriter, r *
 		return web.Respond(ctx, w, nil, http.StatusNoContent)
 	}
 
-	blocksFS := make([]database.BlockFS, len(blocks))
+	storageBlocks := make([]storage.Block, len(blocks))
 	for i, block := range blocks {
-		blocksFS[i] = database.NewBlockFS(block)
+		storageBlocks[i] = storage.NewBlock(block)
 	}
 
-	return web.Respond(ctx, w, blocksFS, http.StatusOK)
+	return web.Respond(ctx, w, storageBlocks, http.StatusOK)
 }
 
 // Mempool returns the set of uncommitted transactions.
