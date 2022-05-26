@@ -75,14 +75,13 @@ func New(cfg Config) (*State, error) {
 		return nil, err
 	}
 
-	// storage :
-	storage, err := storage.NewArdan(cfg.DBPath)
+	store, err := storage.NewDisk(cfg.DBPath)
 	if err != nil {
 		return nil, err
 	}
 
 	// Access the storage for the blockchain.
-	db, err := database.New(gen, storage, ev)
+	db, err := database.New(gen, store, ev)
 	if err != nil {
 		return nil, err
 	}

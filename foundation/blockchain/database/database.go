@@ -9,23 +9,23 @@ import (
 )
 
 // Storage interface represents the behavior required to be implemented by any
-// package providing support for storing and reading the blockchain from disk.
+// package providing support for storing and reading the blockchain from the blockchain.
 type Storage interface {
-	Write(block Block) error
-	GetBlock(num uint64) (Block, error)
+	Write(blockData BlockData) error
+	GetBlock(num uint64) (BlockData, error)
 	ForEach() Iterator
 	Close() error
 	Reset() error
 }
 
 // Iterator interface represents the behavior required to be implemented by any
-// package providing support to iterate over the blocks stored on disk.
+// package providing support to iterate over the blocks.
 type Iterator interface {
-	Next() (Block, error)
+	Next() (BlockData, error)
 	Done() bool
 }
 
-// =============================================================================
+// /////////////////////////////////////////////////////////////////
 
 // Database manages data related to database who have transacted on the blockchain.
 type Database struct {
@@ -40,18 +40,15 @@ type Database struct {
 
 // New Constructs a new account, applies genesis and block information
 // and reads/writes the blockchain database on disk if a dbPath is provided.
+// New constructs a new database and applies account genesis information and
+// reads/writes the blockchain database on disk if a dbPath is provided.
+// New constructs a new database and applies account genesis information and
+// reads/writes the blockchain database on disk if a dbPath is provided.
 func New(genesis genesis.Genesis, storage Storage, evHandler func(v string, args ...any)) (*Database, error) {
-
 	db := Database{
 		genesis:  genesis,
 		accounts: make(map[AccountID]Account),
 		storage:  storage,
-	}
-
-	// Read all the blocks from disk if a path is provided.
-	blocks, err := db.ReadAllBlocks(evHandler, true)
-	if err != nil {
-		return nil, err
 	}
 
 	// Update the database with account balance information from genesis.
@@ -63,17 +60,38 @@ func New(genesis genesis.Genesis, storage Storage, evHandler func(v string, args
 		db.accounts[accountID] = Account{Balance: balance}
 	}
 
-	// Set the current latest block in the chain.
-	if len(blocks) > 0 {
-		db.latestBlock = blocks[len(blocks)-1]
-	}
+	// Capture the latest block after reading all the blocks from storage.
+	var latestBlock Block
 
-	// Update the databse with account balance information from blocks.
-	for _, block := range blocks {
+	// Read all the blocks from storage.
+	iter := db.ForEach()
+	for block, err := iter.Next(); !iter.Done(); block, err = iter.Next() {
+		if err != nil {
+			return nil, err
+		}
+
+		// Validate the block values and cryptographic audit trail.
+		if err := block.ValidateBlock(latestBlock, evHandler); err != nil {
+			return nil, err
+		}
+
+		// Update the database with account balance information from genesis.
+		for accountStr, balance := range genesis.Balances {
+			accountID, err := ToAccountID(accountStr)
+			if err != nil {
+				return nil, err
+			}
+			db.accounts[accountID] = Account{Balance: balance}
+		}
+
+		// Update the database with the transaction information.
 		for _, tx := range block.Transactions.Values() {
 			db.ApplyTx(block, tx)
 		}
 		db.ApplyMiningReward(block)
+
+		// Update the current latest block.
+		latestBlock = block
 	}
 
 	return &db, nil
@@ -87,6 +105,7 @@ func (db *Database) Close() {
 // Reset re-initializes the database back to the genesis state.
 func (db *Database) Reset() error {
 	db.storage.Reset()
+
 	// Initialize the database block to the genesis information.
 	db.latestBlock = Block{}
 	db.accounts = make(map[AccountID]Account)
@@ -95,6 +114,7 @@ func (db *Database) Reset() error {
 		if err != nil {
 			return err
 		}
+
 		db.accounts[accountID] = Account{Balance: balance}
 	}
 
@@ -221,31 +241,45 @@ func (db *Database) LatestBlock() Block {
 
 // Write adds a new block to the chain.
 func (db *Database) Write(block Block) error {
-	return db.storage.Write(block)
+	return db.storage.Write(NewBlockData(block))
 }
 
-// ReadAllBlocks loads all existing blocks from starts into memory.
-// In a real world situation this would require a lot of memory.
-func (db *Database) ReadAllBlocks(evHandler func(v string, args ...any), validate bool) ([]Block, error) {
-	var blocks []Block
-	var latestBlock Block
+// ForEach returns an iterator to walk through all the blocks
+// starting with block number 1.
+func (db *Database) ForEach() DatabaseIterator {
+	return DatabaseIterator{iterator: db.storage.ForEach()}
+}
 
-	iter := db.storage.ForEach()
-	for block, err := iter.Next(); !iter.Done(); block, err = iter.Next() {
-		if err != nil {
-			return nil, err
-		}
-
-		// We want to skip the block validation for query and retrieve operations.
-		if validate {
-			if err := block.ValidateBlock(latestBlock, evHandler); err != nil {
-				return nil, err
-			}
-		}
-
-		blocks = append(blocks, block)
-		latestBlock = block
+// GetBlock searches the blockchain on disk to locate and return the
+// contents of the specified block by number.
+func (db *Database) GetBlock(num uint64) (Block, error) {
+	blockData, err := db.storage.GetBlock(num)
+	if err != nil {
+		return Block{}, err
 	}
 
-	return blocks, nil
+	return ToBlock(blockData)
+}
+
+// /////////////////////////////////////////////////////////////////
+
+// DatabaseIterator provides support for iterating over the blocks in the
+// blockchain database using the configured storage option.
+type DatabaseIterator struct {
+	iterator Iterator
+}
+
+// Next retrieves the next block from disk.
+func (di *DatabaseIterator) Next() (Block, error) {
+	blockData, err := di.iterator.Next()
+	if err != nil {
+		return Block{}, err
+	}
+
+	return ToBlock(blockData)
+}
+
+// Done returns the end of chain value.
+func (di *DatabaseIterator) Done() bool {
+	return di.iterator.Done()
 }

@@ -186,7 +186,7 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 		return err
 	}
 
-	dbBlocks := h.State.QueryBlocksByAccount(accountStr)
+	dbBlocks, err := h.State.QueryBlocksByAccount(accountStr)
 	if len(dbBlocks) == 0 {
 		return web.Respond(ctx, w, nil, http.StatusNoContent)
 	}

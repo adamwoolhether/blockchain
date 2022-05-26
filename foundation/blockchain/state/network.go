@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/database/storage"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 )
 
@@ -27,7 +26,7 @@ func (s *State) NetSendBlockToPeers(block database.Block) error {
 			Status string `json:"status"`
 		}
 
-		if err := send(http.MethodPost, url, storage.NewBlock(block), &status); err != nil {
+		if err := send(http.MethodPost, url, database.NewBlockData(block), &status); err != nil {
 			return fmt.Errorf("%s: %s", peer.Host, err)
 		}
 
@@ -48,7 +47,7 @@ func (s *State) NetSendTxToPeers(tx database.BlockTx) {
 	// the receiving node doesn't have it, then it will request the transaction
 	// based on the mempool key it received.
 
-	// For now, the Ardan blockchain just sends the full transaction.
+	// For now, the Disk blockchain just sends the full transaction.
 	for _, peer := range s.RetrieveKnownPeers() {
 		url := fmt.Sprintf("%s/tx/submit", fmt.Sprintf(baseURL, peer.Host))
 		if err := send(http.MethodPost, url, tx, nil); err != nil {
@@ -101,25 +100,30 @@ func (s *State) NetRequestPeerBlocks(pr peer.Peer) error {
 	// CORE NOTE: Ideally you want to start by pulling just block headers and
 	// performing the cryptographic audit so you know your're not being attacked.
 	// After that you can start pulling the full block data for each block header
-	// if you are a full node and maybe only the last 1000 full blocks if you
+	// if you are a full node and maybe only the last 1000 full blocksData if you
 	// are a pruned node. That can be done in the background. Remember, you
-	// only need block headers to validate new blocks.
+	// only need block headers to validate new blocksData.
 
-	// Currently the Ardan blockchain is a full node only system and needs the
+	// Currently the Disk blockchain is a full node only system and needs the
 	// transactions to have a complete account database. The cryptographic audit
 	// does take place as each full block is downloaded from peers.
 
 	from := s.RetrieveLatestBlock().Header.Number + 1
 	url := fmt.Sprintf("%s/block/list/%d/latest", fmt.Sprintf(baseURL, pr.Host), from)
 
-	var blocks []storage.Block
-	if err := send(http.MethodGet, url, nil, &blocks); err != nil {
+	var blocksData []database.BlockData
+	if err := send(http.MethodGet, url, nil, &blocksData); err != nil {
 		return err
 	}
 
-	s.evHandler("worker: NetRequestPeerBlocks: found blocks[%d]", len(blocks))
+	s.evHandler("worker: NetRequestPeerBlocks: found blocksData[%d]", len(blocksData))
 
-	for _, block := range blocks {
+	for _, blockData := range blocksData {
+		block, err := database.ToBlock(blockData)
+		if err != nil {
+			return err
+		}
+
 		if err := s.ProcessProposedBlock(block); err != nil {
 			return err
 		}

@@ -12,7 +12,6 @@ import (
 
 	v1 "github.com/adamwoolhether/blockchain/business/web/v1"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/database/storage"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/nameservice"
@@ -57,9 +56,16 @@ func (h Handlers) SubmitNodeTransaction(ctx context.Context, w http.ResponseWrit
 func (h Handlers) ProposeBlock(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 
 	// Decode the JSON in the post call into a file system block.
-	var block storage.Block
-	if err := web.Decode(r, &block); err != nil {
+	var blockData database.BlockData
+	if err := web.Decode(r, &blockData); err != nil {
 		return fmt.Errorf("unable to decode payload: %w", err)
+	}
+
+	// Convert the block data into a block. This creates a merkle tree
+	// for the set of transactions required for blockchain operations.
+	block, err := database.ToBlock(blockData)
+	if err != nil {
+		return fmt.Errorf("unable to decodde block: %w")
 	}
 
 	if err := h.State.ProcessProposedBlock(block); err != nil {
@@ -122,12 +128,12 @@ func (h Handlers) BlocksByNumber(ctx context.Context, w http.ResponseWriter, r *
 		return web.Respond(ctx, w, nil, http.StatusNoContent)
 	}
 
-	storageBlocks := make([]storage.Block, len(blocks))
+	blockData := make([]database.BlockData, len(blocks))
 	for i, block := range blocks {
-		storageBlocks[i] = storage.NewBlock(block)
+		blockData[i] = database.NewBlockData(block)
 	}
 
-	return web.Respond(ctx, w, storageBlocks, http.StatusOK)
+	return web.Respond(ctx, w, blockData, http.StatusOK)
 }
 
 // Mempool returns the set of uncommitted transactions.
