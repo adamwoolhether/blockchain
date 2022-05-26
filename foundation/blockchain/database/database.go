@@ -72,9 +72,9 @@ func New(dbPath string, genesis genesis.Genesis, evHandler func(v string, args .
 	// Update the databse with account balance information from blocks.
 	for _, block := range blocks {
 		for _, tx := range block.Transactions.Values() {
-			db.ApplyTx(block.Header.Beneficiary, tx)
+			db.ApplyTx(block.Header.BeneficiaryID, tx)
 		}
-		db.ApplyMiningReward(block.Header.Beneficiary)
+		db.ApplyMiningReward(block.Header.BeneficiaryID)
 	}
 
 	return &db, nil
@@ -164,19 +164,19 @@ func (db *Database) ValidateNonce(tx SignedTx) error {
 }
 
 // ApplyMiningReward gives the specified miner account the mining reward.
-func (db *Database) ApplyMiningReward(beneficiary AccountID) {
+func (db *Database) ApplyMiningReward(beneficiaryID AccountID) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	account := db.accounts[beneficiary]
+	account := db.accounts[beneficiaryID]
 	account.Balance += db.genesis.MiningReward
 
-	db.accounts[beneficiary] = account
+	db.accounts[beneficiaryID] = account
 }
 
 // ApplyTx performs the business logic for applying
 // a transaction to the database information.
-func (db *Database) ApplyTx(beneficiary AccountID, tx BlockTx) error {
+func (db *Database) ApplyTx(beneficiaryID AccountID, tx BlockTx) error {
 
 	// Capture the from address from the signature of the transaction.
 	fromID, err := tx.FromAccount()
@@ -190,7 +190,7 @@ func (db *Database) ApplyTx(beneficiary AccountID, tx BlockTx) error {
 		// Capture accounts from the database.
 		from := db.accounts[fromID]
 		to := db.accounts[tx.ToID]
-		bnfc := db.accounts[beneficiary]
+		bnfc := db.accounts[beneficiaryID]
 
 		// The account needs to pay the gas fee regardless. Take the
 		// remaining balance if the account doesn't hold enough for
@@ -204,7 +204,7 @@ func (db *Database) ApplyTx(beneficiary AccountID, tx BlockTx) error {
 
 		// Ensure these changes get applied.
 		db.accounts[fromID] = from
-		db.accounts[beneficiary] = bnfc
+		db.accounts[beneficiaryID] = bnfc
 
 		// Perform basic accounting checks
 		{
@@ -225,7 +225,7 @@ func (db *Database) ApplyTx(beneficiary AccountID, tx BlockTx) error {
 		from.Balance -= tx.Value
 		to.Balance += tx.Value
 
-		// Give the beneficiary the tip.
+		// Give the beneficiaryID the tip.
 		from.Balance -= tx.Tip
 		bnfc.Balance += tx.Tip
 
@@ -235,7 +235,7 @@ func (db *Database) ApplyTx(beneficiary AccountID, tx BlockTx) error {
 		// Update the final changes to these accounts.
 		db.accounts[fromID] = from
 		db.accounts[tx.ToID] = to
-		db.accounts[beneficiary] = bnfc
+		db.accounts[beneficiaryID] = bnfc
 	}
 	return nil
 }

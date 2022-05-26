@@ -80,6 +80,11 @@ func (h Handlers) SubmitWalletTransaction(ctx context.Context, w http.ResponseWr
 	}
 
 	h.Log.Infow("add tran", "traceid", v.TraceID, "from:nonce", signedTx, "to", signedTx.ToID, "value", signedTx.Value, "tip", signedTx.Tip)
+
+	// Ask the state package to add this transaction to the mempool. Only the
+	// checks are the transaction signature and the recipient account format.
+	// It's up to the wallet to make sure the account has a proper balance and
+	// nonce. Fees will be taken if this transaction is mined into a block.
 	if err := h.State.UpsertWalletTransaction(signedTx); err != nil {
 		return v1.NewRequestError(err, http.StatusBadRequest)
 	}
@@ -225,7 +230,7 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 
 		b := block{
 			PrevBlockHash: blk.Header.PrevBlockHash,
-			Beneficiary:   blk.Header.Beneficiary,
+			BeneficiaryID: blk.Header.BeneficiaryID,
 			Difficulty:    blk.Header.Difficulty,
 			Number:        blk.Header.Number,
 			TimeStamp:     blk.Header.TimeStamp,
