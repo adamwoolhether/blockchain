@@ -87,10 +87,6 @@ func (s *State) ProcessProposedBlock(block database.Block) error {
 		done()
 	}()
 
-	if err := block.ValidateBlock(s.db.LatestBlock(), s.evHandler); err != nil {
-		return err
-	}
-
 	return nil
 }
 

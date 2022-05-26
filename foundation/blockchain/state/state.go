@@ -74,8 +74,14 @@ func New(cfg Config) (*State, error) {
 		return nil, err
 	}
 
+	// storage :
+	storage, err := database.NewJSONStorage(cfg.DBPath)
+	if err != nil {
+		return nil, err
+	}
+
 	// Access the storage for the blockchain.
-	db, err := database.New(cfg.DBPath, gen, ev)
+	db, err := database.New(gen, storage, ev)
 	if err != nil {
 		return nil, err
 	}
