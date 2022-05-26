@@ -2,10 +2,12 @@
 package mempool
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool/selector"
 )
@@ -28,12 +30,12 @@ func NewWithStrategy(strategy string) (*Mempool, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	mp := Mempool{
 		pool:     make(map[string]database.BlockTx),
 		selectFn: selectFn,
 	}
-	
+
 	return &mp, nil
 }
 
@@ -41,7 +43,7 @@ func NewWithStrategy(strategy string) (*Mempool, error) {
 func (mp *Mempool) Count() int {
 	mp.mu.RLock()
 	defer mp.mu.RUnlock()
-	
+
 	return len(mp.pool)
 }
 
@@ -49,14 +51,31 @@ func (mp *Mempool) Count() int {
 func (mp *Mempool) Upsert(tx database.BlockTx) error {
 	mp.mu.RLock()
 	defer mp.mu.RUnlock()
-	
+
+	// Different blockchains have different algorithms to limit
+	// the size of the mempool. Some limit based on the amount of
+	// memory being consumed and some may limit based on the number
+	// of transaction. If a limit is met, then either the transaction
+	// that has the least return on investment or the oldest will be
+	// dropped from the pool to make room for new the transaction.
+
+	// For now, the Ardan blockchain in not imposing any limits.
 	key, err := mapKey(tx)
 	if err != nil {
 		return nil
 	}
-	
+
+	// Ethereum requires a 10% bump in the tip to replace an existing
+	// transaction in the mempool and so do we. We want to limit users
+	// from this sort of behavior.
+	if etx, exists := mp.pool[key]; exists {
+		if tx.Tip < uint(math.Round(float64(etx.Tip)*1.10)) {
+			return errors.New("replacing a transaction requires a 10% increase of the tip")
+		}
+	}
+
 	mp.pool[key] = tx
-	
+
 	return nil
 }
 
@@ -64,14 +83,14 @@ func (mp *Mempool) Upsert(tx database.BlockTx) error {
 func (mp *Mempool) Delete(tx database.BlockTx) error {
 	mp.mu.RLock()
 	defer mp.mu.RUnlock()
-	
+
 	key, err := mapKey(tx)
 	if err != nil {
 		return err
 	}
-	
+
 	delete(mp.pool, key)
-	
+
 	return nil
 }
 
@@ -80,12 +99,12 @@ func (mp *Mempool) Delete(tx database.BlockTx) error {
 func (mp *Mempool) Copy() []database.BlockTx {
 	mp.mu.RLock()
 	defer mp.mu.RUnlock()
-	
+
 	cpy := []database.BlockTx{}
 	for _, tx := range mp.pool {
 		cpy = append(cpy, tx)
 	}
-	
+
 	return cpy
 }
 
@@ -96,7 +115,7 @@ func (mp *Mempool) PickBest(howMany ...int) []database.BlockTx {
 	if len(howMany) > 0 {
 		number = howMany[0]
 	}
-	
+
 	// Copy all the transactions for each account
 	// into separate slices for each account.
 	m := make(map[database.AccountID][]database.BlockTx)
@@ -105,14 +124,14 @@ func (mp *Mempool) PickBest(howMany ...int) []database.BlockTx {
 		if number == -1 {
 			number = len(mp.pool)
 		}
-		
+
 		for key, tx := range mp.pool {
 			account := accountFromMapKey(key)
 			m[account] = append(m[account], tx)
 		}
 	}
 	mp.mu.RUnlock()
-	
+
 	return mp.selectFn(m, number)
 }
 
@@ -122,7 +141,7 @@ func mapKey(tx database.BlockTx) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	return fmt.Sprintf("%s:%d", account, tx.Nonce), nil
 }
 

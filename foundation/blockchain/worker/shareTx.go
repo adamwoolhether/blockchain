@@ -3,7 +3,7 @@ package worker
 import (
 	"fmt"
 	"net/http"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
@@ -18,7 +18,7 @@ const maxTxShareRequests = 100
 func (w *Worker) shareTxOperations() {
 	w.evHandler("Worker: shareTxOperations: G started")
 	defer w.evHandler("Worker: shareTxOperations: G completed")
-	
+
 	for {
 		select {
 		case tx := <-w.txSharing:
@@ -36,7 +36,14 @@ func (w *Worker) shareTxOperations() {
 func (w *Worker) runShareTxOperation(tx database.BlockTx) {
 	w.evHandler("Worker: runShareTxOperation: started")
 	defer w.evHandler("Worker: runShareTxOperation: completed")
-	
+
+	// Bitcoin does not send the full transaction immediately to save on
+	// bandwidth. A node will send the transaction's mempool key first so
+	// the receiving node can check if they already have the transaction or
+	// not. If the receiving node doesn't have it, then it will request the
+	// transaction based on the mempool key it received.
+
+	// For now, the Ardan blockchain just sends the full transaction.
 	for _, pr := range w.state.RetrieveKnownPeers() {
 		url := fmt.Sprintf("%s/tx/submit", fmt.Sprintf(w.baseURL, pr.Host))
 		if err := send(http.MethodPost, url, tx, nil); err != nil {
