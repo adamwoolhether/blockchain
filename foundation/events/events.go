@@ -15,8 +15,14 @@ type Events struct {
 
 // New constructs an events for registering and receiving events.
 func New() *Events {
+
+	// Because a message is dropped if the websocket receiver isn't
+	// ready to receive, this buffer will give the receiver
+	// enough time to not lose messages.
+	const messageBuffer = 10
+
 	return &Events{
-		m: make(map[string]chan string),
+		m: make(map[string]chan string, messageBuffer),
 	}
 }
 
@@ -25,7 +31,7 @@ func New() *Events {
 func (evt *Events) Shutdown() {
 	evt.mu.RLock()
 	defer evt.mu.RUnlock()
-	
+
 	for id, ch := range evt.m {
 		delete(evt.m, id)
 		close(ch)
@@ -37,14 +43,14 @@ func (evt *Events) Shutdown() {
 func (evt *Events) Acquire(id string) chan string {
 	evt.mu.RLock()
 	defer evt.mu.RUnlock()
-	
+
 	ch, exists := evt.m[id]
 	if exists {
 		return ch
 	}
-	
+
 	evt.m[id] = make(chan string)
-	
+
 	return evt.m[id]
 }
 
@@ -53,15 +59,15 @@ func (evt *Events) Acquire(id string) chan string {
 func (evt *Events) Release(id string) error {
 	evt.mu.RLock()
 	defer evt.mu.RUnlock()
-	
+
 	ch, exists := evt.m[id]
 	if !exists {
 		return fmt.Errorf("id %q does not exist", id)
 	}
-	
+
 	delete(evt.m, id)
 	close(ch)
-	
+
 	return nil
 }
 
@@ -70,7 +76,7 @@ func (evt *Events) Release(id string) error {
 func (evt *Events) Send(s string) {
 	evt.mu.RLock()
 	defer evt.mu.RUnlock()
-	
+
 	for _, ch := range evt.m {
 		select {
 		case ch <- s:

@@ -64,7 +64,7 @@ func (h Handlers) ProposeBlock(ctx context.Context, w http.ResponseWriter, r *ht
 		return fmt.Errorf("unable to decode block: %w", err)
 	}
 
-	if err := h.State.ValidateProposedBlock(block); err != nil {
+	if err := h.State.ProcessProposedBlock(block); err != nil {
 		if errors.Is(err, database.ErrChainForked) {
 			h.State.Resync()
 		}
