@@ -14,11 +14,11 @@ import (
 
 // Tx is the transactional data submitted by a user.
 type Tx struct {
-	Nonce uint      `json:"nonce"` // *Unique* id for the transaction supplied by the user.
-	ToID  AccountID `json:"to"`    // AccountID receiving the transactional benefit.
-	Value uint      `json:"value"` // Monetary value received from the transaction.
-	Tip   uint      `json:"tip"`   // Tip offered by the sender as an incentive to mine this transaction,..
-	Data  []byte    `json:"data"`  // Extra data related to the transaction.
+	Nonce uint      `json:"nonce"` // Ethereum: *Unique* id for the transaction supplied by the user.
+	ToID  AccountID `json:"to"`    // Ethereum: AccountID receiving the transactional benefit.
+	Value uint      `json:"value"` // Ethereum: Monetary value received from the transaction.
+	Tip   uint      `json:"tip"`   // Ethereum: Tip offered by the sender as an incentive to mine this transaction,..
+	Data  []byte    `json:"data"`  // Ethereum: Extra data related to the transaction.
 }
 
 // NewUserTx constructs a new user transaction.
@@ -69,9 +69,9 @@ func (tx Tx) Sign(privateKey *ecdsa.PrivateKey) (SignedTx, error) {
 // a wallet provide transactions for inclusion into the blockchain.
 type SignedTx struct {
 	Tx
-	V *big.Int `json:"v"` // Recovery identifier, either 29 or 30 with ardanID.
-	R *big.Int `json:"r"` // First coordinate of the ECDSA signature.
-	S *big.Int `json:"s"` // Second coordinate of the ECDSA signature.
+	V *big.Int `json:"v"` // Ethereum: Recovery identifier, either 29 or 30 with ardanID.
+	R *big.Int `json:"r"` // Ethereum: First coordinate of the ECDSA signature.
+	S *big.Int `json:"s"` // Ethereum: Second coordinate of the ECDSA signature.
 }
 
 // Validate verifies the transaction has a proper signature that conforms to our
@@ -116,16 +116,18 @@ func (tx SignedTx) String() string {
 // BlockTx represents the transaction as it's recorded inside the blockchain.
 type BlockTx struct {
 	SignedTx
-	TimeStamp uint64 `json:"timestamp"` // The time the transaction was received.
-	Gas       uint   `json:"gas"`       // Gas fee to recover the computation costs paid by the sender.
+	TimeStamp uint64 `json:"timestamp"` // Ethereum: The time the transaction was received.
+	GasPrice  uint   `json:"gas_price"` // Ethereum: GasPrice fee to recover the computation costs paid by the sender.
+	GasUnits  uint   `json:"gas_units"` // Ethereum: The number of untis of as used for this transaction.
 }
 
 // NewBlockTx constructs a new block transaction.
-func NewBlockTx(signedTx SignedTx, gas uint) BlockTx {
+func NewBlockTx(signedTx SignedTx, gasPrice, unitsOfGas uint) BlockTx {
 	return BlockTx{
 		SignedTx:  signedTx,
 		TimeStamp: uint64(time.Now().UTC().Unix()),
-		Gas:       gas,
+		GasPrice:  gasPrice,
+		GasUnits:  unitsOfGas,
 	}
 }
 
