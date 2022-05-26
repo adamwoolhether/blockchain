@@ -4,7 +4,7 @@ package selector
 import (
 	"fmt"
 	"strings"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
@@ -23,7 +23,7 @@ var strategies = map[string]Func{
 // Func defines a function that takes a mempool of transactions grouped by
 // account and selects howMany of them in an order based on the function
 // strategy. All selector functions muust respect nonce ordering. Receiving
-// -1 for howMany must return all the transactions in the strategy ordering.
+// 0 for howMany must return all the transactions in the strategy ordering.
 type Func func(transactions map[database.AccountID][]database.BlockTx, howMany int) []database.BlockTx
 
 // Retrieve returns the selected strategy function.
@@ -32,7 +32,7 @@ func Retrieve(strategy string) (Func, error) {
 	if !exists {
 		return nil, fmt.Errorf("strategy %q does not exist", strategy)
 	}
-	
+
 	return fn, nil
 }
 

@@ -3,14 +3,14 @@ package database
 import (
 	"crypto/ecdsa"
 	"errors"
-	
+
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // Account represents information stored in the database for an individual account.
 type Account struct {
-	Balance uint
-	Nonce   uint
+	Balance uint64
+	Nonce   uint64
 }
 
 // AccountID represents an account in the system that can
@@ -24,7 +24,7 @@ func ToAccountID(hex string) (AccountID, error) {
 	if !a.IsAccountID() {
 		return "", errors.New("invalid account format")
 	}
-	
+
 	return a, nil
 }
 
@@ -37,11 +37,11 @@ func PublicKeyToAccountID(pk ecdsa.PublicKey) AccountID {
 // a valid hex-encoded account.
 func (a AccountID) IsAccountID() bool {
 	const addressLength = 20
-	
+
 	if has0xPrefix(a) {
 		a = a[2:]
 	}
-	
+
 	return len(a) == 2*addressLength && isHex(a)
 }
 
@@ -57,13 +57,13 @@ func isHex(a AccountID) bool {
 	if len(a)%2 != 0 {
 		return false
 	}
-	
+
 	for _, c := range []byte(a) {
 		if !isHexCharacter(c) {
 			return false
 		}
 	}
-	
+
 	return true
 }
 

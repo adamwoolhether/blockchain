@@ -37,7 +37,7 @@ func (w *Worker) runShareTxOperation(tx database.BlockTx) {
 	w.evHandler("Worker: runShareTxOperation: started")
 	defer w.evHandler("Worker: runShareTxOperation: completed")
 
-	// Bitcoin does not send the full transaction immediately to save on
+	// CORE NOTE: Bitcoin does not send the full transaction immediately to save on
 	// bandwidth. A node will send the transaction's mempool key first so
 	// the receiving node can check if they already have the transaction or
 	// not. If the receiving node doesn't have it, then it will request the

@@ -14,25 +14,27 @@ import (
 
 // Tx is the transactional data submitted by a user.
 type Tx struct {
-	Nonce uint      `json:"nonce"` // Ethereum: *Unique* id for the transaction supplied by the user.
-	ToID  AccountID `json:"to"`    // Ethereum: AccountID receiving the transactional benefit.
-	Value uint      `json:"value"` // Ethereum: Monetary value received from the transaction.
-	Tip   uint      `json:"tip"`   // Ethereum: Tip offered by the sender as an incentive to mine this transaction,..
-	Data  []byte    `json:"data"`  // Ethereum: Extra data related to the transaction.
+	ChainID uint16    `json:"chain_id"` // Ethereum: The chain id that is listed in the genesis file.
+	Nonce   uint64    `json:"nonce"`    // Ethereum: *Unique* id for the transaction supplied by the user.
+	ToID    AccountID `json:"to"`       // Ethereum: AccountID receiving the transactional benefit.
+	Value   uint64    `json:"value"`    // Ethereum: Monetary value received from the transaction.
+	Tip     uint64    `json:"tip"`      // Ethereum: Tip offered by the sender as an incentive to mine this transaction,..
+	Data    []byte    `json:"data"`     // Ethereum: Extra data related to the transaction.
 }
 
 // NewUserTx constructs a new user transaction.
-func NewUserTx(nonce uint, toID AccountID, value, tip uint, data []byte) (Tx, error) {
+func NewUserTx(chainID uint16, nonce uint64, toID AccountID, value, tip uint64, data []byte) (Tx, error) {
 	if !toID.IsAccountID() {
 		return Tx{}, fmt.Errorf("to account is not properly formatted")
 	}
 
 	tx := Tx{
-		Nonce: nonce,
-		ToID:  toID,
-		Value: value,
-		Tip:   tip,
-		Data:  data,
+		ChainID: chainID,
+		Nonce:   nonce,
+		ToID:    toID,
+		Value:   value,
+		Tip:     tip,
+		Data:    data,
 	}
 
 	return tx, nil
@@ -117,12 +119,12 @@ func (tx SignedTx) String() string {
 type BlockTx struct {
 	SignedTx
 	TimeStamp uint64 `json:"timestamp"` // Ethereum: The time the transaction was received.
-	GasPrice  uint   `json:"gas_price"` // Ethereum: GasPrice fee to recover the computation costs paid by the sender.
-	GasUnits  uint   `json:"gas_units"` // Ethereum: The number of untis of as used for this transaction.
+	GasPrice  uint64 `json:"gas_price"` // Ethereum: GasPrice fee to recover the computation costs paid by the sender.
+	GasUnits  uint64 `json:"gas_units"` // Ethereum: The number of untis of as used for this transaction.
 }
 
 // NewBlockTx constructs a new block transaction.
-func NewBlockTx(signedTx SignedTx, gasPrice, unitsOfGas uint) BlockTx {
+func NewBlockTx(signedTx SignedTx, gasPrice, unitsOfGas uint64) BlockTx {
 	return BlockTx{
 		SignedTx:  signedTx,
 		TimeStamp: uint64(time.Now().UTC().Unix()),

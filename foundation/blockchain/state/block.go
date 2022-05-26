@@ -25,9 +25,28 @@ func (s *State) MineNewBlock(ctx context.Context) (database.Block, error) {
 
 	s.evHandler("state: MineNewBlock: MINING: perform POW")
 
+	// CORE NOTE: Hashing the block header and not the whole block so the blockchain
+	// can be cryptographically checked by only needing block headers and not full
+	// blocks with the transaction data. This will support the ability to have pruned
+	// nodes and light clients in the future.
+	// - A pruned node stores all the block headers, but only a small number of full
+	//   blocks (maybe the last 1000 blocks). This allows for full cryptographic
+	//   validation of blocks and transactions without all the extra storage.
+	// - A light client keeps block headers and just enough sufficient information
+	//   to follow the latest set of blocks being produced. The do not validate
+	//   blocks, but can prove a transaction is in a block.
+
+	tx := s.mempool.PickBest(s.genesis.TransPerBlock)
+
 	// Attempt to create a new BlockFS by solving the POW puzzle. This can be cancelled.
-	tx := s.mempool.PickBest()
-	block, err := database.POW(ctx, s.beneficiaryID, s.genesis.Difficulty, s.RetrieveLatestBlock(), tx, s.evHandler)
+	block, err := database.POW(ctx,
+		s.beneficiaryID,
+		s.genesis.Difficulty,
+		s.genesis.MiningReward,
+		s.RetrieveLatestBlock(),
+		tx,
+		s.evHandler,
+	)
 	if err != nil {
 		return database.Block{}, err
 	}
@@ -105,7 +124,7 @@ func (s *State) validateUpdateDatabase(block database.Block) error {
 		s.evHandler("state: updateLocalState: tx[%s] update and remove", tx)
 
 		// Apply the balance changes based on this transaction.
-		if err := s.db.ApplyTx(block.Header.BeneficiaryID, tx); err != nil {
+		if err := s.db.ApplyTx(block, tx); err != nil {
 			s.evHandler("state: updateLocalState: WARNING : %s", err)
 			continue
 		}
@@ -117,7 +136,7 @@ func (s *State) validateUpdateDatabase(block database.Block) error {
 	s.evHandler("state: updateLocalState: apply mining reward")
 
 	// Apply the mining reward for this block.
-	s.db.ApplyMiningReward(block.Header.BeneficiaryID)
+	s.db.ApplyMiningReward(block)
 
 	return nil
 }

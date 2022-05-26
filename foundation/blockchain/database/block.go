@@ -19,13 +19,14 @@ var ErrChainForked = errors.New("blockchain forked, start resync")
 
 // BlockHeader represents common information required for each block.
 type BlockHeader struct {
+	Number        uint64    `json:"number"`          // Ethereum: The block number in the chain.
 	PrevBlockHash string    `json:"prev_block_hash"` // Bitcoin: Hash of the previous block in the chain.
 	TimeStamp     uint64    `json:"time_stamp"`      // Bitcoin: Time the block was mined.
-	Nonce         uint64    `json:"nonce"`           // Bitcoin: Value identified to solve the hash solution.
 	BeneficiaryID AccountID `json:"beneficiary"`     // Ethereum: The account of the miner who mined the block.
-	Difficulty    int       `json:"difficulty"`      // Ethereum: Number of 0's needed to solve the hash solution.
-	Number        uint64    `json:"number"`          // Ethereum: The block number in the chain.
-	TransRoot     string    `json:"trans_root"`      // Bitcoin/Ethereum: Represents the merkle tree root hash for the transactions in this block.
+	Difficulty    uint16    `json:"difficulty"`      // Ethereum: Number of 0's needed to solve the hash solution.
+	MiningReward  uint64    `json:"mining_reward"`   // Ethereum: The reward for mining this block.
+	TransRoot     string    `json:"trans_root"`      // Both: Represents the merkle tree root hash for the transactions in this block.
+	Nonce         uint64    `json:"nonce"`           // Both: Value identified to solve the hash solution.
 }
 
 // Block struct represents a grup of transactions batched together.
@@ -36,7 +37,7 @@ type Block struct {
 
 // POW constructs a new Block and performs the work to find a nonce that
 // solves the cryptographic POW puzzle.
-func POW(ctx context.Context, beneficiaryID AccountID, difficulty int, prevBlock Block, txs []BlockTx, evHandler func(v string, args ...any)) (Block, error) {
+func POW(ctx context.Context, beneficiaryID AccountID, difficulty uint16, miningReward uint64, prevBlock Block, txs []BlockTx, evHandler func(v string, args ...any)) (Block, error) {
 
 	// When mining the first block, the parent hash will be zero
 	prevBlockHash := signature.ZeroHash
@@ -54,13 +55,13 @@ func POW(ctx context.Context, beneficiaryID AccountID, difficulty int, prevBlock
 	// Construct the block to be mined.
 	nb := Block{
 		Header: BlockHeader{
+			Number:        prevBlock.Header.Number + 1,
 			PrevBlockHash: prevBlockHash,
 			TimeStamp:     uint64(time.Now().UTC().Unix()),
-			Nonce:         0, // Will be identified by the POW algorithm.
 			BeneficiaryID: beneficiaryID,
 			Difficulty:    difficulty,
-			Number:        prevBlock.Header.Number + 1,
-			TransRoot:     tree.MerkleRootHex(),
+			TransRoot:     tree.MerkleRootHex(), //
+			Nonce:         0,                    // Will be identified by the POW algorithm.
 		},
 		Transactions: tree,
 	}
@@ -132,9 +133,11 @@ func (b Block) Hash() string {
 		return signature.ZeroHash
 	}
 
-	// Hashing the block header not the whole block because the data is smaller
-	// for the unmarshal operation and the merkel root will let us validate
-	// transactions with a merkle proof.
+	// CORE NOTE: Hashing the block header and not the whole block, allowing the blockchain
+	// to be cryptographically checked with block headers only and not full
+	// blocks with transacted data. This allows support for pruned nodes in the
+	// future. Pruned nodes can keep only 1000 full blocks of data and are still
+	// capable of validating all new blocks and transactions in real time.
 
 	return signature.Hash(b.Header)
 }
@@ -205,7 +208,7 @@ func (b Block) ValidateBlock(previousBlock Block, evHandler func(v string, args 
 
 // isHashSolved checks the hash to make sure it complies with
 // the POW rules. We need to match a difficulty number of 0's.
-func isHashSolved(difficulty int, hash string) bool {
+func isHashSolved(difficulty uint16, hash string) bool {
 	const match = "00000000000000000"
 
 	if len(hash) != 64 {

@@ -9,12 +9,13 @@ import (
 
 // Genesis represents the genesis file.
 type Genesis struct {
-	Date         time.Time       `json:"date"`
-	ChainID      string          `json:"chain_id"`
-	Difficulty   int             `json:"difficulty"`    // Difficulty level to solve the work problem.
-	MiningReward uint            `json:"mining_reward"` // Reward for mining the block.
-	GasPrice     uint            `json:"gas_price"`     // Fee paid for each transaction mined into a block.
-	Balances     map[string]uint `json:"balances"`
+	Date          time.Time         `json:"date"`
+	ChainID       uint16            `json:"chain_id"`        // The chain id represents a unique id for this running instance.
+	TransPerBlock uint16            `json:"trans_per_block"` // The maximum number of transaction that can be in a block.
+	Difficulty    uint16            `json:"difficulty"`      // Difficulty level to solve the work problem.
+	MiningReward  uint64            `json:"mining_reward"`   // Reward for mining the block.
+	GasPrice      uint64            `json:"gas_price"`       // Fee paid for each transaction mined into a block.
+	Balances      map[string]uint64 `json:"balances"`
 }
 
 // Load opens and consumes the genesis file.
@@ -24,12 +25,12 @@ func Load() (Genesis, error) {
 	if err != nil {
 		return Genesis{}, err
 	}
-	
+
 	var genesis Genesis
 	err = json.Unmarshal(content, &genesis)
 	if err != nil {
 		return Genesis{}, err
 	}
-	
+
 	return genesis, nil
 }
