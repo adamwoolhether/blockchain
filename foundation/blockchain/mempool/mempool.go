@@ -49,8 +49,8 @@ func (mp *Mempool) Count() int {
 
 // Upsert adds or replaces a transaction from the mempool.
 func (mp *Mempool) Upsert(tx database.BlockTx) error {
-	mp.mu.RLock()
-	defer mp.mu.RUnlock()
+	mp.mu.Lock()
+	defer mp.mu.Unlock()
 
 	// CORE NOTE: Different blockchains have different algorithms to limit
 	// the size of the mempool. Some limit based on the amount of
@@ -92,20 +92,6 @@ func (mp *Mempool) Delete(tx database.BlockTx) error {
 	delete(mp.pool, key)
 
 	return nil
-}
-
-// Copy uses the configured sort strategy to return the next
-// set of transactions for the next bock.
-func (mp *Mempool) Copy() []database.BlockTx {
-	mp.mu.RLock()
-	defer mp.mu.RUnlock()
-
-	cpy := []database.BlockTx{}
-	for _, tx := range mp.pool {
-		cpy = append(cpy, tx)
-	}
-
-	return cpy
 }
 
 func (mp *Mempool) Truncate() {
