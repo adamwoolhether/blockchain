@@ -9,9 +9,13 @@ SHELL := $(shell echo ${SHELL})
 # Miner1: 	0xdF3212a524C8f7329970D9a5A227d9D40D8723D9
 # Miner2: 	0x2378baB7101cDcE1084A540Fb885D8E3779a1DB2
 
-# curl -X GET http://localhost:8080/v1/genesis | jq
-# curl -X GET http://localhost:8080/v1/accounts/list | jq
-# curl -X GET http://localhost:8080/v1/tx/uncommitted/list | jq
+# Bookeeping transactions
+# curl -il -X GET http://localhost:8080/v1/genesis/list
+# curl -il -X GET http://localhost:9080/v1/node/status
+# curl -il -X GET http://localhost:8080/v1/accounts/list
+# curl -il -X GET http://localhost:8080/v1/tx/uncommitted/list
+# curl -il -X GET http://localhost:8080/v1/blocks/list
+# curl -il -X GET http://localhost:9080/v1/node/block/list/1/latest
 
 # ######################################################################################################################
 # Local support

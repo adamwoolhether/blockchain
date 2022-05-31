@@ -62,9 +62,6 @@ func New(genesis genesis.Genesis, storage Storage, evHandler func(v string, args
 		db.accounts[accountID] = newAccount(accountID, balance)
 	}
 
-	// Capture the latest block after reading all the blocks from storage.
-	var latestBlock Block
-
 	// Read all the blocks from storage.
 	iter := db.ForEach()
 	for block, err := iter.Next(); !iter.Done(); block, err = iter.Next() {
@@ -73,7 +70,7 @@ func New(genesis genesis.Genesis, storage Storage, evHandler func(v string, args
 		}
 
 		// Validate the block values and cryptographic audit trail.
-		if err := block.ValidateBlock(latestBlock, db.HashState(), evHandler); err != nil {
+		if err := block.ValidateBlock(db.latestBlock, db.HashState(), evHandler); err != nil {
 			return nil, err
 		}
 
@@ -93,7 +90,7 @@ func New(genesis genesis.Genesis, storage Storage, evHandler func(v string, args
 		db.ApplyMiningReward(block)
 
 		// Update the current latest block.
-		latestBlock = block
+		db.latestBlock = block
 	}
 
 	return &db, nil
@@ -106,6 +103,9 @@ func (db *Database) Close() {
 
 // Reset re-initializes the database back to the genesis state.
 func (db *Database) Reset() error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	db.storage.Reset()
 
 	// Initialize the database block to the genesis information.
@@ -186,9 +186,20 @@ func (db *Database) ApplyTx(block Block, tx BlockTx) error {
 	defer db.mu.Unlock()
 	{
 		// Capture accounts from the database.
-		from := db.accounts[fromID]
-		to := db.accounts[tx.ToID]
-		bnfc := db.accounts[block.Header.BeneficiaryID]
+		from, exists := db.accounts[fromID]
+		if !exists {
+			from = newAccount(fromID, 0)
+		}
+
+		to, exists := db.accounts[tx.ToID]
+		if !exists {
+			to = newAccount(tx.ToID, 0)
+		}
+
+		bnfc, exists := db.accounts[block.Header.BeneficiaryID]
+		if !exists {
+			bnfc = newAccount(block.Header.BeneficiaryID, 0)
+		}
 
 		// The account needs to pay the gas fee regardless. Take the
 		// remaining balance if the account doesn't hold enough for

@@ -75,7 +75,8 @@ func New(cfg Config) (*State, error) {
 		return nil, err
 	}
 
-	store, err := disk.NewDisk(cfg.DBPath)
+	store, err := disk.New(cfg.DBPath)
+	// store, err := memory.New()
 	if err != nil {
 		return nil, err
 	}

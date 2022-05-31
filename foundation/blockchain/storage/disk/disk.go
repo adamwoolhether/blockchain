@@ -1,4 +1,4 @@
-// Package storage implements the ability to read and write blocks to disk
+// Package storage implements the ability to read and write blocks to storage
 // using different serialization options.
 package disk
 
@@ -14,15 +14,15 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
-// Disk represents the disk implementation for reading and storing blocks
-// in their own separate files on disk. This implements the database.Storage
+// Disk represents the storage implementation for reading and storing blocks
+// in their own separate files on storage. This implements the database.Storage
 // interface.
 type Disk struct {
 	dbPath string
 }
 
-// NewDisk constructs an Disk value for use.
-func NewDisk(dbPath string) (*Disk, error) {
+// New constructs an Disk value for use.
+func New(dbPath string) (*Disk, error) {
 	if err := os.MkdirAll(dbPath, 0755); err != nil {
 		return nil, err
 	}
@@ -31,16 +31,16 @@ func NewDisk(dbPath string) (*Disk, error) {
 }
 
 // Close in this implementation has nothing to do since a new file is
-// written to disk for each now Block and then immediately closed.
+// written to storage for each now Block and then immediately closed.
 func (d *Disk) Close() error {
 	return nil
 }
 
-// Write takes the specified database blocks and stores it on disk in a
+// Write takes the specified database blocks and stores it on storage in a
 // file labeled with the Block number.
 func (d *Disk) Write(blockData database.BlockData) error {
 
-	// Marshal the Block for writing to disk in a more human readable format.
+	// Marshal the Block for writing to storage in a more human readable format.
 	data, err := json.MarshalIndent(blockData, "", "  ")
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func (d *Disk) Write(blockData database.BlockData) error {
 	}
 	defer f.Close()
 
-	// Write the new Block to disk.
+	// Write the new Block to storage.
 	if _, err := f.Write(data); err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (d *Disk) Write(blockData database.BlockData) error {
 	return nil
 }
 
-// GetBlock searches the blockchain on disk to locate and return the
+// GetBlock searches the blockchain on storage to locate and return the
 // contents of the specified Block by number.
 func (d *Disk) GetBlock(num uint64) (database.BlockData, error) {
 
@@ -85,10 +85,10 @@ func (d *Disk) GetBlock(num uint64) (database.BlockData, error) {
 // ForEach returns an iterator to walk through all
 // the blocks starting with Block number 1.
 func (d *Disk) ForEach() database.Iterator {
-	return &DiskIterator{disk: d}
+	return &diskIterator{storage: d}
 }
 
-// Reset will clear out the blockchain on disk.
+// Reset will clear out the blockchain on storage.
 func (d *Disk) Reset() error {
 	if err := os.RemoveAll(d.dbPath); err != nil {
 		return err
@@ -103,23 +103,23 @@ func (d *Disk) getPath(blockNum uint64) string {
 	return path.Join(d.dbPath, fmt.Sprintf("%s.json", name))
 }
 
-// DiskIterator represents the iteration implementation for walking
-// through and reading blocks on disk. This implements the database
+// diskIterator represents the iteration implementation for walking
+// through and reading blocks on storage. This implements the database
 // Iterator interface.
-type DiskIterator struct {
-	disk    *Disk  // Access to the Disk disk API.
+type diskIterator struct {
+	storage *Disk  // Access to the Disk storage API.
 	current uint64 // Currenet Block number being iterated over.
 	eoc     bool   // Represents the iterator is at the end of the chain.
 }
 
-// Next retrieves the next Block from disk.
-func (di *DiskIterator) Next() (database.BlockData, error) {
+// Next retrieves the next Block from storage.
+func (di *diskIterator) Next() (database.BlockData, error) {
 	if di.eoc {
 		return database.BlockData{}, errors.New("end of chain")
 	}
 
 	di.current++
-	blockData, err := di.disk.GetBlock(di.current)
+	blockData, err := di.storage.GetBlock(di.current)
 	if errors.Is(err, fs.ErrNotExist) {
 		di.eoc = true
 	}
@@ -128,6 +128,6 @@ func (di *DiskIterator) Next() (database.BlockData, error) {
 }
 
 // Done returns the end of chain value.
-func (di *DiskIterator) Done() bool {
+func (di *diskIterator) Done() bool {
 	return di.eoc
 }
