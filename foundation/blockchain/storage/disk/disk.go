@@ -1,4 +1,6 @@
-package storage
+// Package storage implements the ability to read and write blocks to disk
+// using different serialization options.
+package disk
 
 import (
 	"encoding/json"
@@ -88,7 +90,11 @@ func (d *Disk) ForEach() database.Iterator {
 
 // Reset will clear out the blockchain on disk.
 func (d *Disk) Reset() error {
-	return nil
+	if err := os.RemoveAll(d.dbPath); err != nil {
+		return err
+	}
+
+	return os.MkdirAll(d.dbPath, 0755)
 }
 
 // getPath forms the path to the specified Block.

@@ -6,10 +6,10 @@ import (
 	"sync"
 
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/database/storage"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage/disk"
 )
 
 // EventHandler defines a function that is called
@@ -75,7 +75,7 @@ func New(cfg Config) (*State, error) {
 		return nil, err
 	}
 
-	store, err := storage.NewDisk(cfg.DBPath)
+	store, err := disk.NewDisk(cfg.DBPath)
 	if err != nil {
 		return nil, err
 	}

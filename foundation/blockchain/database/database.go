@@ -3,9 +3,11 @@ package database
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/signature"
 )
 
 // Storage interface represents the behavior required to be implemented by any
@@ -57,7 +59,7 @@ func New(genesis genesis.Genesis, storage Storage, evHandler func(v string, args
 		if err != nil {
 			return nil, err
 		}
-		db.accounts[accountID] = Account{Balance: balance}
+		db.accounts[accountID] = newAccount(accountID, balance)
 	}
 
 	// Capture the latest block after reading all the blocks from storage.
@@ -71,7 +73,7 @@ func New(genesis genesis.Genesis, storage Storage, evHandler func(v string, args
 		}
 
 		// Validate the block values and cryptographic audit trail.
-		if err := block.ValidateBlock(latestBlock, evHandler); err != nil {
+		if err := block.ValidateBlock(latestBlock, db.HashState(), evHandler); err != nil {
 			return nil, err
 		}
 
@@ -81,7 +83,7 @@ func New(genesis genesis.Genesis, storage Storage, evHandler func(v string, args
 			if err != nil {
 				return nil, err
 			}
-			db.accounts[accountID] = Account{Balance: balance}
+			db.accounts[accountID] = newAccount(accountID, balance)
 		}
 
 		// Update the database with the transaction information.
@@ -115,7 +117,7 @@ func (db *Database) Reset() error {
 			return err
 		}
 
-		db.accounts[accountID] = Account{Balance: balance}
+		db.accounts[accountID] = newAccount(accountID, balance)
 	}
 
 	return nil
@@ -140,6 +142,23 @@ func (db *Database) CopyAccounts() map[AccountID]Account {
 	}
 
 	return accounts
+}
+
+// HashState returns a hash based on the contents of the accounts and
+// their balances. This is added to each block and checked by peers.
+func (db *Database) HashState() string {
+	accounts := make([]Account, 0, len(db.accounts))
+	db.mu.RLock()
+	{
+		for _, account := range db.accounts {
+			accounts = append(accounts, account)
+		}
+	}
+	db.mu.RUnlock()
+
+	sort.Sort(byAccount(accounts))
+
+	return signature.Hash(accounts)
 }
 
 // ApplyMiningReward gives the specified miner account the mining reward.
