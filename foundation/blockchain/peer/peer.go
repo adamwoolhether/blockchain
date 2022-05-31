@@ -45,26 +45,34 @@ func NewSet() *Set {
 }
 
 // Add adds a new node to the set.
-func (ps *Set) Add(peer Peer) bool {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
+func (s *Set) Add(peer Peer) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	_, exists := ps.set[peer]
+	_, exists := s.set[peer]
 	if !exists {
-		ps.set[peer] = struct{}{}
+		s.set[peer] = struct{}{}
 		return true
 	}
 
 	return false
 }
 
+// Remove removes a node from the set.
+func (s *Set) Remove(peer Peer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.set, peer)
+}
+
 // Copy returns a list of known peers.
-func (ps *Set) Copy(host string) []Peer {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
+func (s *Set) Copy(host string) []Peer {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	var peers []Peer
-	for peer := range ps.set {
+	for peer := range s.set {
 		if !peer.Match(host) {
 			peers = append(peers, peer)
 		}

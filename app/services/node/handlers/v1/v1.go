@@ -57,6 +57,7 @@ func PrivateRoutes(app *web.App, cfg Config) {
 		NS:    cfg.NS,
 	}
 
+	app.Handle(http.MethodPost, version, "/node/peers", prv.SubmitPeer)
 	app.Handle(http.MethodGet, version, "/node/status", prv.Status)
 	app.Handle(http.MethodGet, version, "/node/block/list/:from/:to", prv.BlocksByNumber)
 	app.Handle(http.MethodPost, version, "/node/block/next", prv.ProposeBlock)
