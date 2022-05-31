@@ -16,6 +16,13 @@ SHELL := $(shell echo ${SHELL})
 # curl -il -X GET http://localhost:8080/v1/tx/uncommitted/list
 # curl -il -X GET http://localhost:8080/v1/blocks/list
 # curl -il -X GET http://localhost:9080/v1/node/block/list/1/latest
+#
+# curl -X GET http://localhost:8080/v1/genesis/list | jq
+# curl -X GET http://localhost:9080/v1/node/status | jq
+# curl -X GET http://localhost:8080/v1/accounts/list | jq
+# curl -X GET http://localhost:8080/v1/tx/uncommitted/list | jq
+# curl -X GET http://localhost:8080/v1/blocks/list | jq
+# curl -X GET http://localhost:9080/v1/node/block/list/1/latest | jq
 
 # ######################################################################################################################
 # Local support

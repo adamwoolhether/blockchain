@@ -52,7 +52,7 @@ func newAdvancedTips(m map[database.AccountID][]database.BlockTx, howMany int) *
 			if i > howMany {
 				break
 			}
-			groupTips[from] = append(groupTips[from], tx.Tip*groupTips[from][i])
+			groupTips[from] = append(groupTips[from], tx.Tip+groupTips[from][i])
 		}
 	}
 

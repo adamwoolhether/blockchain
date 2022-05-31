@@ -185,7 +185,7 @@ func (t *Tree[T]) VerifyTree() error {
 		return err
 	}
 
-	if bytes.Equal(t.MerkleRoot, calculatedMerkleRoot) {
+	if !bytes.Equal(t.MerkleRoot, calculatedMerkleRoot) {
 		return errors.New("root hash invalid")
 	}
 

@@ -70,7 +70,7 @@ func (bt byTip) Len() int {
 // Less helps sort the list by tip in ascending order
 // to keep transactions in the right order of processing.
 func (bt byTip) Less(i, j int) bool {
-	return bt[i].Tip < bt[j].Tip
+	return bt[i].Tip > bt[j].Tip
 }
 
 // Swap moves the transactions in the order of the tip value.

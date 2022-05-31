@@ -108,6 +108,13 @@ func (mp *Mempool) Copy() []database.BlockTx {
 	return cpy
 }
 
+func (mp *Mempool) Truncate() {
+	mp.mu.Lock()
+	defer mp.mu.Unlock()
+
+	mp.pool = make(map[string]database.BlockTx)
+}
+
 // PickBest uses the configured sort strategy to return the next
 // set of transactions for the next bock. If 0 is passed, all
 // transactions in the mempool will be returned.
