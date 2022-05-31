@@ -61,7 +61,7 @@ func runSend(user string) error {
 	}
 
 	const chainID = 1
-	tx, err := database.NewUserTx(chainID, nonce, toAccount, value, tip, data)
+	tx, err := database.NewTx(chainID, nonce, toAccount, value, tip, data)
 	if err != nil {
 		return err
 	}

@@ -1,4 +1,5 @@
-// Package database maintains account balances and other account information.
+// Package database handles all the lower level support for maintaining the
+// blockchain in storage and maintaining an in-memory databse of account information.
 package database
 
 import (
@@ -11,7 +12,7 @@ import (
 )
 
 // Storage interface represents the behavior required to be implemented by any
-// package providing support for storing and reading the blockchain from the blockchain.
+// package providing support for reading and writing the blockchain.
 type Storage interface {
 	Write(blockData BlockData) error
 	GetBlock(num uint64) (BlockData, error)
@@ -29,21 +30,15 @@ type Iterator interface {
 
 // /////////////////////////////////////////////////////////////////
 
-// Database manages data related to database who have transacted on the blockchain.
+// Database manages data related to accounts who have transacted on the blockchain.
 type Database struct {
-	mu sync.RWMutex
-
+	mu          sync.RWMutex
 	genesis     genesis.Genesis
 	latestBlock Block
 	accounts    map[AccountID]Account
-
-	storage Storage
+	storage     Storage
 }
 
-// New Constructs a new account, applies genesis and block information
-// and reads/writes the blockchain database on disk if a dbPath is provided.
-// New constructs a new database and applies account genesis information and
-// reads/writes the blockchain database on disk if a dbPath is provided.
 // New constructs a new database and applies account genesis information and
 // reads/writes the blockchain database on disk if a dbPath is provided.
 func New(genesis genesis.Genesis, storage Storage, evHandler func(v string, args ...any)) (*Database, error) {
@@ -101,14 +96,14 @@ func (db *Database) Close() {
 	db.storage.Close()
 }
 
-// Reset re-initializes the database back to the genesis state.
+// Reset re-initalizes the database back to the genesis state.
 func (db *Database) Reset() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	db.storage.Reset()
 
-	// Initialize the database block to the genesis information.
+	// Initalizes the database back to the genesis information.
 	db.latestBlock = Block{}
 	db.accounts = make(map[AccountID]Account)
 	for accountStr, balance := range db.genesis.Balances {
@@ -131,14 +126,14 @@ func (db *Database) Remove(accountID AccountID) {
 	delete(db.accounts, accountID)
 }
 
-// CopyAccounts makes a copy of the current database for all account.
+// CopyAccounts makes a copy of the current accounts in the database.
 func (db *Database) CopyAccounts() map[AccountID]Account {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
 	accounts := make(map[AccountID]Account)
-	for accountID, info := range db.accounts {
-		accounts[accountID] = info
+	for accountID, account := range db.accounts {
+		accounts[accountID] = account
 	}
 
 	return accounts
@@ -157,23 +152,22 @@ func (db *Database) HashState() string {
 	db.mu.RUnlock()
 
 	sort.Sort(byAccount(accounts))
-
 	return signature.Hash(accounts)
 }
 
-// ApplyMiningReward gives the specified miner account the mining reward.
+// ApplyMiningReward gives the specififed account the mining reward.
 func (db *Database) ApplyMiningReward(block Block) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	account := db.accounts[block.Header.BeneficiaryID]
-	account.Balance += db.genesis.MiningReward
+	account.Balance += block.Header.MiningReward
 
 	db.accounts[block.Header.BeneficiaryID] = account
 }
 
-// ApplyTx performs the business logic for applying
-// a transaction to the database information.
+// ApplyTx performs the business logic for applying a transaction
+// to the database.
 func (db *Database) ApplyTx(block Block, tx BlockTx) error {
 
 	// Capture the from address from the signature of the transaction.
@@ -185,7 +179,7 @@ func (db *Database) ApplyTx(block Block, tx BlockTx) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	{
-		// Capture accounts from the database.
+		// Capture these accounts from the database.
 		from, exists := db.accounts[fromID]
 		if !exists {
 			from = newAccount(fromID, 0)
@@ -202,8 +196,8 @@ func (db *Database) ApplyTx(block Block, tx BlockTx) error {
 		}
 
 		// The account needs to pay the gas fee regardless. Take the
-		// remaining balance if the account doesn't hold enough for
-		// the full amount of gas. This helps prevent bad actors.
+		// remaining balance if the account doesn't hold enough for the
+		// full amount of gas. This is the only way to stop bad actors.
 		gasFee := tx.GasPrice * tx.GasUnits
 		if gasFee > from.Balance {
 			gasFee = from.Balance
@@ -211,11 +205,11 @@ func (db *Database) ApplyTx(block Block, tx BlockTx) error {
 		from.Balance -= gasFee
 		bnfc.Balance += gasFee
 
-		// Ensure these changes get applied.
+		// Make sure these changes get applied.
 		db.accounts[fromID] = from
 		db.accounts[block.Header.BeneficiaryID] = bnfc
 
-		// Perform basic accounting checks
+		// Perform basic accounting checks.
 		{
 			if tx.ChainID != db.genesis.ChainID {
 				return fmt.Errorf("transaction invalid, wrong chain id, got %d, exp %d", tx.ChainID, db.genesis.ChainID)
@@ -238,7 +232,7 @@ func (db *Database) ApplyTx(block Block, tx BlockTx) error {
 		from.Balance -= tx.Value
 		to.Balance += tx.Value
 
-		// Give the beneficiaryID the tip.
+		// Give the beneficiary the tip.
 		from.Balance -= tx.Tip
 		bnfc.Balance += tx.Tip
 
@@ -250,6 +244,7 @@ func (db *Database) ApplyTx(block Block, tx BlockTx) error {
 		db.accounts[tx.ToID] = to
 		db.accounts[block.Header.BeneficiaryID] = bnfc
 	}
+
 	return nil
 }
 

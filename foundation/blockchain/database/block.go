@@ -13,8 +13,8 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/signature"
 )
 
-// ErrChainForked is returned from the validateNextBlock if another
-// node's chain is two or more blocks ahead of ours.
+// ErrChainForked is returned from validateNextBlock if another node's chain
+// is two or more blocks ahead of ours.
 var ErrChainForked = errors.New("blockchain forked, start resync")
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -37,7 +37,7 @@ func NewBlockData(block Block) BlockData {
 	return blockData
 }
 
-// ToBlock converts a storage block block into a database block.
+// ToBlock converts a storage block into a database block.
 func ToBlock(blockData BlockData) (Block, error) {
 	tree, err := merkle.NewTree(blockData.Trans)
 	if err != nil {
@@ -56,18 +56,18 @@ func ToBlock(blockData BlockData) (Block, error) {
 
 // BlockHeader represents common information required for each block.
 type BlockHeader struct {
-	Number        uint64    `json:"number"`          // Ethereum: The block number in the chain.
+	Number        uint64    `json:"number"`          // Ethereum: Block number in the chain.
 	PrevBlockHash string    `json:"prev_block_hash"` // Bitcoin: Hash of the previous block in the chain.
-	TimeStamp     uint64    `json:"time_stamp"`      // Bitcoin: Time the block was mined.
-	BeneficiaryID AccountID `json:"beneficiary"`     // Ethereum: The account of the miner who mined the block.
+	TimeStamp     uint64    `json:"timestamp"`       // Bitcoin: Time the block was mined.
+	BeneficiaryID AccountID `json:"beneficiary"`     // Ethereum: The account who is receiving fees and tips.
 	Difficulty    uint16    `json:"difficulty"`      // Ethereum: Number of 0's needed to solve the hash solution.
 	MiningReward  uint64    `json:"mining_reward"`   // Ethereum: The reward for mining this block.
-	StateRoot     string    `json:"state_root"`      // Ethereum: Represents a hash of the accounts and their balances
+	StateRoot     string    `json:"state_root"`      // Ethereum: Represents a hash of the accounts and their balances.
 	TransRoot     string    `json:"trans_root"`      // Both: Represents the merkle tree root hash for the transactions in this block.
 	Nonce         uint64    `json:"nonce"`           // Both: Value identified to solve the hash solution.
 }
 
-// Block struct represents a grup of transactions batched together.
+// Block represents a group of transactions batched together.
 type Block struct {
 	Header       BlockHeader
 	Transactions *merkle.Tree[BlockTx]
@@ -85,17 +85,17 @@ type POWArgs struct {
 }
 
 // POW constructs a new Block and performs the work to find a nonce that
-// solves the cryptographic POW puzzle.
+// solves the cryptographic POW puzzel.
 func POW(ctx context.Context, args POWArgs) (Block, error) {
 
-	// When mining the first block, the parent hash will be zero
+	// When mining the first block, the previous block's hash will be zero.
 	prevBlockHash := signature.ZeroHash
 	if args.PrevBlock.Header.Number > 0 {
 		prevBlockHash = args.PrevBlock.Hash()
 	}
 
-	// Construct a merkle tree from the transaction for this block.
-	// The root of this tree will be part of the block to be mined.
+	// Construct a merkle tree from the transaction for this block. The root
+	// of this tree will be part of the block to be mined.
 	tree, err := merkle.NewTree(args.Tx)
 	if err != nil {
 		return Block{}, err
@@ -109,40 +109,42 @@ func POW(ctx context.Context, args POWArgs) (Block, error) {
 			TimeStamp:     uint64(time.Now().UTC().Unix()),
 			BeneficiaryID: args.BeneficiaryID,
 			Difficulty:    args.Difficulty,
+			MiningReward:  args.MiningReward,
+			StateRoot:     args.StateRoot,
 			TransRoot:     tree.MerkleRootHex(), //
 			Nonce:         0,                    // Will be identified by the POW algorithm.
 		},
 		Transactions: tree,
 	}
 
-	// Perform the proof of work mining operation.
-	if err := nb.PerformPOW(ctx, args.EvHandler); err != nil {
+	// Peform the proof of work mining operation.
+	if err := nb.performPOW(ctx, args.EvHandler); err != nil {
 		return Block{}, err
 	}
 
 	return nb, nil
 }
 
-// PerformPOW does the work of mining to find a valid hash for a specified
-// block. Pointer semantics used since a nonce is being discovered.
-func (b *Block) PerformPOW(ctx context.Context, ev func(v string, args ...any)) error {
+// performPOW does the work of mining to find a valid hash for a specified
+// block. Pointer semantics are being used since a nonce is being discovered.
+func (b *Block) performPOW(ctx context.Context, ev func(v string, args ...any)) error {
 	ev("database: PerformPOW: MINING: started")
 	defer ev("database: PerformPOW: MINING: completed")
 
-	// Log the transactions that are part of this potential block.
+	// Log the transactions that are a part of this potential block.
 	for _, tx := range b.Transactions.Values() {
 		ev("database: PerformPOW: MINING: tx[%s]", tx)
 	}
 
-	// Choose a random starting point for the nonce. Afterwards, the nonce
-	// is incremented by 1 until a solution is found by us or another node.
+	// Choose a random starting point for the nonce. After this, the nonce
+	// will be incremented by 1 until a solution is found by us or another node.
 	nBig, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	if err != nil {
 		return ctx.Err()
 	}
 	b.Header.Nonce = nBig.Uint64()
 
-	// Log until we or another node finds a solution for the next block.
+	// Loop until we or another node finds a solution for the next block.
 	var attempts uint64
 	for {
 		attempts++
@@ -182,11 +184,16 @@ func (b Block) Hash() string {
 		return signature.ZeroHash
 	}
 
-	// CORE NOTE: Hashing the block header and not the whole block, allowing the blockchain
-	// to be cryptographically checked with block headers only and not full
-	// blocks with transacted data. This allows support for pruned nodes in the
-	// future. Pruned nodes can keep only 1000 full blocks of data and are still
-	// capable of validating all new blocks and transactions in real time.
+	// CORE NOTE: Hashing the block header and not the whole block so the blockchain
+	// can be cryptographically checked by only needing block headers and not full
+	// blocks with the transaction data. This will support the ability to have pruned
+	// nodes and light clients in the future.
+	// - A pruned node stores all the block headers, but only a small number of full
+	//   blocks (maybe the last 1000 blocks). This allows for full cryptographic
+	//   validation of blocks and transactions without all the extra storage.
+	// - A light client keeps block headers and just enough sufficient information
+	//   to follow the latest set of blocks being produced. The do not validate
+	//   blocks, but can prove a transaction is in a block.
 
 	return signature.Hash(b.Header)
 }
@@ -205,7 +212,7 @@ func (b Block) ValidateBlock(previousBlock Block, stateRoot string, evHandler fu
 	evHandler("database: ValidateBlock: validate: blk[%d]: check: block difficulty is the same or greater than parent block difficulty", b.Header.Number)
 
 	if b.Header.Difficulty < previousBlock.Header.Difficulty {
-		return fmt.Errorf("block difficulty is less than parent block difficulty, parent %d, block %d", previousBlock.Header.Difficulty, b.Header.Difficulty)
+		return fmt.Errorf("block difficulty is less than previous block difficulty, parent %d, block %d", previousBlock.Header.Difficulty, b.Header.Difficulty)
 	}
 
 	evHandler("database: ValidateBlock: validate: blk[%d]: check: block hash has been solved", b.Header.Number)
@@ -242,7 +249,7 @@ func (b Block) ValidateBlock(previousBlock Block, stateRoot string, evHandler fu
 
 		// dur := blockTime.Sub(parentTime)
 		// if dur.Seconds() > time.Duration(15*time.Second).Seconds() {
-		// 	return nil, fmt.Errorf("block is older than 15 minutes, duration %v", dur)
+		// 	return fmt.Errorf("block is older than 15 minutes, duration %v", dur)
 		// }
 	}
 
@@ -272,38 +279,3 @@ func isHashSolved(difficulty uint16, hash string) bool {
 
 	return hash[:difficulty] == match[:difficulty]
 }
-
-// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*// BlockFS represents what is written to the DB file.
-type BlockFS struct {
-	Hash  string      `json:"hash"`
-	Block BlockHeader `json:"block"`
-	Txs   []BlockTx   `json:"txs"`
-}
-
-// NewBlockFS constructs the value to serialize to disk.
-func NewBlockFS(block Block) BlockFS {
-	bfs := BlockFS{
-		Hash:  block.Hash(),
-		Block: block.Header,
-		Txs:   block.Transactions.Values(),
-	}
-
-	return bfs
-}
-
-// ToBlock converts a BlockFS into a Block.
-func ToBlock(blockFS BlockFS) (Block, error) {
-	tree, err := merkle.NewTree(blockFS.Txs)
-	if err != nil {
-		return Block{}, err
-	}
-
-	nb := Block{
-		Header:       blockFS.Block,
-		Transactions: tree,
-	}
-
-	return nb, nil
-}*/

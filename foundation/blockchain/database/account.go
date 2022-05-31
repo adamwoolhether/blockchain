@@ -14,7 +14,7 @@ type Account struct {
 	Balance   uint64
 }
 
-// new Account constructs a new account value for use.
+// newAccount constructs a new account value for use.
 func newAccount(accountID AccountID, balance uint64) Account {
 	return Account{
 		AccountID: accountID,
@@ -24,12 +24,12 @@ func newAccount(accountID AccountID, balance uint64) Account {
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// AccountID represents an account in the system that can
-// sign and is associated with transactions on the blockchain.
+// AccountID represents an account id that is used to sign transactions and is
+// associated with transactions on the blockchain.
 type AccountID string
 
-// ToAccountID converts a hex-encoded string to an account and
-// validates the hex-encoded string is formatted correctly.
+// ToAccountID converts a hex-encoded string to an account and validates the
+// hex-encoded string is formatted correctly.
 func ToAccountID(hex string) (AccountID, error) {
 	a := AccountID(hex)
 	if !a.IsAccountID() {
@@ -44,8 +44,8 @@ func PublicKeyToAccountID(pk ecdsa.PublicKey) AccountID {
 	return AccountID(crypto.PubkeyToAddress(pk).String())
 }
 
-// IsAccountID verifies whether the underlying data represents
-// a valid hex-encoded account.
+// IsAccountID verifies whether the underlying data represents a valid
+// hex-encoded account.
 func (a AccountID) IsAccountID() bool {
 	const addressLength = 20
 
@@ -58,12 +58,12 @@ func (a AccountID) IsAccountID() bool {
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// has0xPrefix validates the accounts starts with 0x.
+// has0xPrefix validates the account starts with a 0x.
 func has0xPrefix(a AccountID) bool {
 	return len(a) >= 2 && a[0] == '0' && (a[1] == 'x' || a[1] == 'X')
 }
 
-// isHex validates whether each byte is a valid hexadecimal string
+// isHex validates whether each byte is valid hexadecimal string.
 func isHex(a AccountID) bool {
 	if len(a)%2 != 0 {
 		return false
@@ -78,14 +78,14 @@ func isHex(a AccountID) bool {
 	return true
 }
 
-// isHexCharacter returns a bool of c being a valid hexadecimal.
+// isHexCharacter returns bool of c being a valid hexadecimal.
 func isHexCharacter(c byte) bool {
 	return ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// byAccount provides sorting support by the account id value
+// byAccount provides sorting support by the account id value.
 type byAccount []Account
 
 // Len returns the number of transactions in the list.
@@ -93,13 +93,13 @@ func (ba byAccount) Len() int {
 	return len(ba)
 }
 
-// Less helps sort the list by account id in ascending order to keep
-// the accounts in the right order of processing.
+// Less helps to sort the list by account id in ascending order to keep the
+// accounts in the right order of processing.
 func (ba byAccount) Less(i, j int) bool {
 	return ba[i].AccountID < ba[j].AccountID
 }
 
-// Swap moves accounts in order of the account id value.
+// Swap moves accounts in the order of the account id value.
 func (ba byAccount) Swap(i, j int) {
 	ba[i], ba[j] = ba[j], ba[i]
 }
