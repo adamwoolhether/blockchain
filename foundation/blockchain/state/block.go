@@ -2,7 +2,9 @@ package state
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
@@ -64,6 +66,9 @@ func (s *State) MineNewBlock(ctx context.Context) (database.Block, error) {
 		return database.Block{}, err
 	}
 
+	// Let the viewer know about the new block.
+	s.sendBlockToViewer(block)
+
 	return block, nil
 }
 
@@ -86,9 +91,19 @@ func (s *State) ProcessProposedBlock(block database.Block) error {
 	defer func() {
 		s.evHandler("state: ProcessProposedBlock: signal runMiningOperation to terminate")
 		done()
+
+		s.sendBlockToViewer(block) // Let the viewer know about the new block.
 	}()
 
 	return nil
+}
+
+func (s *State) sendBlockToViewer(block database.Block) {
+	blockHeaderJSON, err := json.Marshal(block.Header)
+	if err != nil {
+		blockHeaderJSON = []byte(fmt.Sprintf("%q", err.Error()))
+	}
+	s.evHandler(`viewer: block: {"hash":%q,"header":%s}`, block.Hash(), string(blockHeaderJSON))
 }
 
 // /////////////////////////////////////////////////////////////////
