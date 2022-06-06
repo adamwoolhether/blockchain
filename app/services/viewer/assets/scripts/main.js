@@ -1,6 +1,7 @@
 function connect(wsUrl, httpUrl, id) {
     let blockHashes = new Set();
     let lastBlockHash = "";
+
     const handleNewBlock = function(hash, block) {
         if (blockHashes.size === 0) {
             document.getElementById(`first-msg${id}`).innerHTML = getBlockTable(hash, block);

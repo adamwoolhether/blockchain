@@ -149,10 +149,9 @@ func (s *State) TurnMiningOn() {
 	s.allowMining = true
 }
 
-// Resync resets the chain both on disk and in memory. This is used to
-// correct an identified fork. No mining is allowed to take place while this
-// process is running. New transactions can be placed in the mempool.
-func (s *State) Resync() error {
+// Reorganize corrects an identified fork. No mining is allowed to take place
+// while this process is running. New transactions can be placed into the mempool.
+func (s *State) Reorganize() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -162,13 +161,13 @@ func (s *State) Resync() error {
 	// Reset the state of the blockchain node.
 	s.db.Reset()
 
-	// Resync the state of the blockchain.
+	// Reorganize the state of the blockchain.
 	s.resyncWG.Add(1)
 	go func() {
-		s.evHandler("state: Resync: started: ***********************")
+		s.evHandler("state: Reorganize: started: ***********************")
 		defer func() {
 			s.TurnMiningOn()
-			s.evHandler("state: Resync: completed: ***********************")
+			s.evHandler("state: Reorganize: completed: ***********************")
 			s.resyncWG.Done()
 		}()
 

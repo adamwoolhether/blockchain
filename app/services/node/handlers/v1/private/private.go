@@ -70,7 +70,7 @@ func (h Handlers) ProposeBlock(ctx context.Context, w http.ResponseWriter, r *ht
 
 	if err := h.State.ProcessProposedBlock(block); err != nil {
 		if errors.Is(err, database.ErrChainForked) {
-			h.State.Resync()
+			h.State.Reorganize()
 		}
 
 		return v1.NewRequestError(errors.New("block not accepted"), http.StatusNotAcceptable)

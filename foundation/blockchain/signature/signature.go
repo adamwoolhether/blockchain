@@ -16,7 +16,7 @@ import (
 )
 
 // ZeroHash represents a hash code of zeros.
-const ZeroHash string = "0000000000000000000000000000000000000000000000000000000000000000"
+const ZeroHash string = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 // ardanID is the arbitrary number for signing messages. This will make it
 // clear that the signature comes from the Ardan blockchain.
@@ -34,7 +34,7 @@ func Hash(value any) string {
 
 	hash := sha256.Sum256(data)
 
-	return hex.EncodeToString(hash[:])
+	return "0x" + hex.EncodeToString(hash[:])
 }
 
 // Sign uses the specified private kry to sign the interaction.
