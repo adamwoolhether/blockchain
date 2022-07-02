@@ -49,6 +49,8 @@ func (w *Worker) runPeersOperation() {
 
 			// Since this peer is unavailable, remove them from the list.
 			w.state.RemoveKnownPeer(pr)
+
+			continue
 		}
 
 		// Add peers from this node's peer list that are currently missing.

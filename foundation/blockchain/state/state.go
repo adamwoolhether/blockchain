@@ -22,7 +22,7 @@ type Worker interface {
 	Shutdown()
 	Sync()
 	SignalStartMining()
-	SignalCancelMining() (done func())
+	SignalCancelMining()
 	SignalShareTx(blockTx database.BlockTx)
 }
 
