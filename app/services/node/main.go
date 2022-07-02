@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -133,9 +134,13 @@ func run(log *zap.SugaredLogger) error {
 
 	evts := events.New()
 	ev := func(v string, args ...any) {
+		const websocketPrefix = "viewer:"
+
 		s := fmt.Sprintf(v, args...)
 		log.Infow(s, "traceid", "00000000-0000-0000-0000-000000000000")
-		evts.Send(s)
+		if strings.HasPrefix(s, websocketPrefix) {
+			evts.Send(s)
+		}
 	}
 
 	st, err := state.New(state.Config{

@@ -18,6 +18,8 @@ var ErrNoTransactions = errors.New("not enough transactions in mempool")
 // MineNewBlock attempts to create a new block with a proper hash
 // that can become the the next block in the chain.
 func (s *State) MineNewBlock(ctx context.Context) (database.Block, error) {
+	defer s.evHandler("viewer: MineNewBlock: MINING: completed")
+
 	s.evHandler("state: MineNewBlock: MINING: check mempool count")
 
 	// Are there enough transactions in the pool.
@@ -38,6 +40,7 @@ func (s *State) MineNewBlock(ctx context.Context) (database.Block, error) {
 	//   to follow the latest set of blocks being produced. The do not validate
 	//   blocks, but can prove a transaction is in a block.
 
+	// Pick the best transaction from the mempool
 	tx := s.mempool.PickBest(s.genesis.TransPerBlock)
 
 	// Attempt to create a new BlockFS by solving the POW puzzle. This can be cancelled.
@@ -151,14 +154,10 @@ func (s *State) validateUpdateDatabase(block database.Block) error {
 // blockEvent provides a specific event about a new block in the
 // chain for application specific support.
 func (s *State) blockEvent(block database.Block) {
-	blockHeaderJSON, err := json.Marshal(block.Header)
+	data, err := json.Marshal(block.Header)
 	if err != nil {
-		blockHeaderJSON = []byte(fmt.Sprintf("%q", err.Error()))
-	}
-	blockTransJSON, err := json.Marshal(block.MerkleTree.Values())
-	if err != nil {
-		blockTransJSON = []byte(fmt.Sprintf("%q", err.Error()))
+		data = []byte(fmt.Sprintf("{error: %q}", err.Error()))
 	}
 
-	s.evHandler(`viewer: block: {"hash":%q,"header":%s,"trans":%s}`, block.Hash(), string(blockHeaderJSON), string(blockTransJSON))
+	s.evHandler("viewer: block: %s", string(data))
 }

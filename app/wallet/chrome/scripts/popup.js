@@ -134,7 +134,7 @@ function connect() {
             return;
         }
 
-        if (event.data.includes("MINING")) {
+        if (event.data.includes("MINING: running")) {
             conn.className = "mining";
             conn.innerHTML = "MINING...";
             return;
@@ -265,9 +265,10 @@ function transactions() {
         type: "get",
         url: "http://localhost:8080/v1/blocks/list/" + wallet.address,
         success: function (resp) {
-            if (resp == nul) {
+            if (resp == null) {
                 return;
             }
+
             var msg = "";
             var count = 0;
             for (var i = 0; i < resp.length; i++) {
@@ -348,7 +349,7 @@ function createTxHash(tx) {
         s: ethers.BigNumber.from(sSlice).toString(),
         timestamp: tx.timestamp,
         gas_price: tx.gas_price,
-        gas_units: tx.gas_units,
+        gas_units: tx.gas_units
     };
 
     // Marshal into JSON for the payload.

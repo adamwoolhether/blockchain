@@ -45,7 +45,7 @@ services:
       bash -c "/scripts/wait-for-master-node.sh make up"
     environment:
       NODE_STATE_ORIGIN_PEERS: "blockchain-node-1:9080"
-      NODE_STATE_BENEFICIARY: miner2
+      NODE_STATE_BENEFICIARY: miner3
       NODE_WEB_PUBLIC_HOST: blockchain-node-2:8280
       NODE_WEB_PRIVATE_HOST: blockchain-node-2:9280
       # Use ephemeral filesystem on container for node.
