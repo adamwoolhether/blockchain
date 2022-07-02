@@ -66,12 +66,12 @@ func runSend(user string) error {
 		return err
 	}
 
-	walletTx, err := tx.Sign(privateKey)
+	signedTx, err := tx.Sign(privateKey)
 	if err != nil {
 		return err
 	}
 
-	data, err := json.Marshal(walletTx)
+	data, err := json.Marshal(signedTx)
 	if err != nil {
 		return err
 	}

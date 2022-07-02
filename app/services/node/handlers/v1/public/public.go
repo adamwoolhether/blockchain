@@ -11,9 +11,10 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	v1 "github.com/adamwoolhether/blockchain/business/web/v1"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/merkle"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
 	"github.com/adamwoolhether/blockchain/foundation/events"
 	"github.com/adamwoolhether/blockchain/foundation/nameservice"
@@ -216,7 +217,7 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 			}
 			proof := make([]string, len(rawProof))
 			for i, rp := range rawProof {
-				proof[i] = "0x" + merkle.ToHex(rp)
+				proof[i] = hexutil.Encode(rp)
 			}
 
 			txs[i] = tx{

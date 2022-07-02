@@ -2,7 +2,7 @@ package selector
 
 import (
 	"sort"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
@@ -15,7 +15,7 @@ var tipSelect = func(m map[database.AccountID][]database.BlockTx, howMany int) [
 			sort.Sort(byNonce(m[key]))
 		}
 	}
-	
+
 	// Pick the first transaction in the slice for each account. Each
 	// iteration represents a new row of selections. Keep doing this
 	// until all the transactions have been selected.
@@ -33,22 +33,20 @@ var tipSelect = func(m map[database.AccountID][]database.BlockTx, howMany int) [
 		}
 		rows = append(rows, row)
 	}
-	
+
 	// Sort each row by tip unless all the transactions from that row
 	// are taken. Then try to select the number of requested tranactions.
 	// Keep pulling transactions from each row until the amount is
 	// fulfilled or there are no more transactions.
 	final := []database.BlockTx{}
-done:
 	for _, row := range rows {
 		need := howMany - len(final)
 		if len(row) > need {
 			sort.Sort(byTip(row))
 			final = append(final, row[:need]...)
-			break done
 		}
 		final = append(final, row...)
 	}
-	
+
 	return final
 }
