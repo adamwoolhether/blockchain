@@ -13,8 +13,8 @@ import (
 
 // Set of different consensus protocols that can be used.
 const (
-	ConsensusPOW = "pow"
-	ConsensusPOA = "poa"
+	ConsensusPOW = "POW"
+	ConsensusPOA = "POA"
 )
 
 // EventHandler defines a function that is called
