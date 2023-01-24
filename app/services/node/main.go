@@ -17,8 +17,10 @@ import (
 
 	"github.com/adamwoolhether/blockchain/app/services/node/handlers"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/state"
+	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage/disk"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/worker"
 	"github.com/adamwoolhether/blockchain/foundation/events"
 	"github.com/adamwoolhether/blockchain/foundation/logger"
@@ -143,10 +145,23 @@ func run(log *zap.SugaredLogger) error {
 		}
 	}
 
+	// Construct disk storage.
+	storage, err := disk.New(cfg.State.DBPath)
+	if err != nil {
+		return err
+	}
+
+	// Load genesis file for initial blockchain settings and origin balances.
+	genesis, err := genesis.Load()
+	if err != nil {
+		return err
+	}
+
 	st, err := state.New(state.Config{
 		BeneficiaryID:  database.PublicKeyToAccountID(privateKey.PublicKey),
 		Host:           cfg.Web.PrivateHost,
-		DBPath:         cfg.State.DBPath,
+		Storage:        storage,
+		Genesis:        genesis,
 		SelectStrategy: cfg.State.SelectStrategy,
 		KnownPeers:     peerSet,
 		EvHandler:      ev,

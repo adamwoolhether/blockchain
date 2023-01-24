@@ -9,7 +9,6 @@ import (
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/genesis"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/mempool"
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/peer"
-	"github.com/adamwoolhether/blockchain/foundation/blockchain/storage/disk"
 )
 
 // EventHandler defines a function that is called
@@ -33,7 +32,8 @@ type Worker interface {
 type Config struct {
 	BeneficiaryID  database.AccountID
 	Host           string
-	DBPath         string
+	Storage        database.Storage
+	Genesis        genesis.Genesis
 	SelectStrategy string
 	KnownPeers     *peer.Set
 	EvHandler      EventHandler
@@ -41,17 +41,16 @@ type Config struct {
 
 // State manages the blockchain database.
 type State struct {
-	mu sync.RWMutex
+	mu          sync.RWMutex
+	resyncWG    sync.WaitGroup
+	allowMining bool
 
 	beneficiaryID database.AccountID
 	host          string
-	dbPath        string
 	evHandler     EventHandler
 
-	allowMining bool
-	resyncWG    sync.WaitGroup
-
 	knownPeers *peer.Set
+	storage    database.Storage
 	genesis    genesis.Genesis
 	mempool    *mempool.Mempool
 	db         *database.Database
@@ -68,21 +67,8 @@ func New(cfg Config) (*State, error) {
 		}
 	}
 
-	// Load the genesis file to get starting
-	// balances for founders of the blockchain.
-	gen, err := genesis.Load()
-	if err != nil {
-		return nil, err
-	}
-
-	store, err := disk.New(cfg.DBPath)
-	// store, err := memory.New()
-	if err != nil {
-		return nil, err
-	}
-
 	// Access the storage for the blockchain.
-	db, err := database.New(gen, store, ev)
+	db, err := database.New(cfg.Genesis, cfg.Storage, ev)
 	if err != nil {
 		return nil, err
 	}
@@ -97,12 +83,12 @@ func New(cfg Config) (*State, error) {
 	state := State{
 		beneficiaryID: cfg.BeneficiaryID,
 		host:          cfg.Host,
-		dbPath:        cfg.DBPath,
+		storage:       cfg.Storage,
 		evHandler:     ev,
 		allowMining:   true,
 
 		knownPeers: cfg.KnownPeers,
-		genesis:    gen,
+		genesis:    cfg.Genesis,
 		mempool:    mpool,
 		db:         db,
 	}
