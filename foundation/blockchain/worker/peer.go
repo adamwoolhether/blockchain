@@ -40,7 +40,7 @@ func (w *Worker) runPeersOperation() {
 	w.evHandler("Worker: runPeersOperation: started")
 	defer w.evHandler("Worker: runPeersOperation: completed")
 
-	for _, pr := range w.state.RetrieveKnownPeers() {
+	for _, pr := range w.state.RetrieveKnownExternalPeers() {
 
 		// Retrieve the status of this peer.
 		peerStatus, err := w.state.NetRequestPeerStatus(pr)

@@ -14,27 +14,27 @@ import (
 // was received) a block is created and then the POW operation starts. This
 // operation can be cancelled if a proposed block is received and is validated.
 
-// miningOperations handles mining.
-func (w *Worker) miningOperations() {
-	w.evHandler("Worker: miningOperations: G started")
-	defer w.evHandler("Worker: miningOperations: G completed")
+// powOperations handles mining.
+func (w *Worker) powOperations() {
+	w.evHandler("Worker: powOperations: G started")
+	defer w.evHandler("Worker: powOperations: G completed")
 
 	for {
 		select {
 		case <-w.startMining:
 			if !w.isShutdown() {
-				w.runMiningOperation()
+				w.runPowOperation()
 			}
 		case <-w.shut:
-			w.evHandler("Worker: miningOperations: received shut signal")
+			w.evHandler("Worker: powOperations: received shut signal")
 			return
 		}
 	}
 }
 
-// runMiningOperation takes all the transactions from the
+// runPowOperation takes all the transactions from the
 // mempool and writes a new block to the database.
-func (w *Worker) runMiningOperation() {
+func (w *Worker) runPowOperation() {
 	w.evHandler("Worker: runMiningOperation: MINING: started")
 	defer w.evHandler("Worker: runMiningOperation: MINING: completed")
 

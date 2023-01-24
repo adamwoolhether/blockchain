@@ -43,10 +43,15 @@ func (s *State) MineNewBlock(ctx context.Context) (database.Block, error) {
 	// Pick the best transaction from the mempool
 	tx := s.mempool.PickBest(s.genesis.TransPerBlock)
 
+	difficulty := s.genesis.Difficulty
+	if s.RetrieveConsensus() == ConsensusPOA {
+		difficulty = 1
+	}
+
 	// Attempt to create a new BlockFS by solving the POW puzzle. This can be cancelled.
 	block, err := database.POW(ctx, database.POWArgs{
 		BeneficiaryID: s.beneficiaryID,
-		Difficulty:    s.genesis.Difficulty,
+		Difficulty:    difficulty,
 		MiningReward:  s.genesis.MiningReward,
 		PrevBlock:     s.RetrieveLatestBlock(),
 		StateRoot:     s.db.HashState(),

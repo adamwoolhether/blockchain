@@ -28,11 +28,11 @@ type Worker struct {
 
 // Run creates a Worker, registers the Worker with the state package, and
 // starts up all the background processes.
-func Run(state *state.State, evHandler state.EventHandler) {
-	// Construct and register this Worker to the state. During
-	// initialization this Worker needs access to the state.
+func Run(st *state.State, evHandler state.EventHandler) {
+	// Construct and register this Worker to the st. During
+	// initialization this Worker needs access to the st.
 	w := Worker{
-		state:        state,
+		state:        st,
 		ticker:       *time.NewTicker(peerUpdateInterval),
 		shut:         make(chan struct{}),
 		startMining:  make(chan bool, 1),
@@ -41,17 +41,23 @@ func Run(state *state.State, evHandler state.EventHandler) {
 		evHandler:    evHandler,
 	}
 
-	// Register this Worker with the state package
-	state.Worker = &w
+	// Register this Worker with the st package
+	st.Worker = &w
 
 	// Update this node before starting any support G's.
 	w.Sync()
 
+	// Select consensus operation to run.
+	consensusOperation := w.powOperations
+	if st.RetrieveConsensus() == state.ConsensusPOA {
+		consensusOperation = w.poaOperations
+	}
+
 	// Load the set of operations needed to run.
 	operations := []func(){
 		w.peerOperations,
-		w.miningOperations,
 		w.shareTxOperations,
+		consensusOperation,
 	}
 
 	// Set waitgroup to match the number of G's needed
@@ -104,6 +110,11 @@ func (w *Worker) SignalStartMining() {
 		return
 	}
 
+	// Only PoW requires signalling to start mining.
+	if w.state.RetrieveConsensus() != state.ConsensusPOW {
+		return
+	}
+
 	select {
 	case w.startMining <- true:
 	default:
@@ -111,9 +122,14 @@ func (w *Worker) SignalStartMining() {
 	w.evHandler("Worker: SignalStartMining: mining signaled")
 }
 
-// SignalCancelMining signals the G executing the runMiningOperation function
+// SignalCancelMining signals the G executing the runPowOperation function
 // to stop immediately.
 func (w *Worker) SignalCancelMining() {
+	// Only PoW requires signalling to cancel mining.
+	if w.state.RetrieveConsensus() != state.ConsensusPOW {
+		return
+	}
+
 	select {
 	case w.cancelMining <- true:
 	default:

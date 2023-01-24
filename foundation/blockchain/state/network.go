@@ -19,7 +19,7 @@ func (s *State) NetSendBlockToPeers(block database.Block) error {
 	s.evHandler("state: NetSendBlockToPeers: started")
 	defer s.evHandler("state: NetSendBlockToPeers: completed")
 
-	for _, pr := range s.RetrieveKnownPeers() {
+	for _, pr := range s.RetrieveKnownExternalPeers() {
 		s.evHandler("state: NetSendBlockToPeers: send: block[%s] to peer[%s]", block.Hash(), pr)
 
 		url := fmt.Sprintf("%s/block/propose", fmt.Sprintf(baseURL, pr.Host))
@@ -47,7 +47,7 @@ func (s *State) NetSendTxToPeers(tx database.BlockTx) {
 	// based on the mempool key it received.
 
 	// For now, the Disk blockchain just sends the full transaction.
-	for _, pr := range s.RetrieveKnownPeers() {
+	for _, pr := range s.RetrieveKnownExternalPeers() {
 		s.evHandler("state: NetSendTxToPeers: send: tx[%s] to peer[%s]", tx, pr)
 
 		url := fmt.Sprintf("%s/tx/submit", fmt.Sprintf(baseURL, pr.Host))
@@ -66,7 +66,7 @@ func (s *State) NetSendNodeAvailableToPeers() {
 
 	host := peer.Peer{Host: s.RetrieveHost()}
 
-	for _, pr := range s.RetrieveKnownPeers() {
+	for _, pr := range s.RetrieveKnownExternalPeers() {
 		s.evHandler("state: NetSendNodeAvailableToPeers: send: host[%s] to peer[%s]", host, pr)
 
 		url := fmt.Sprintf("%s/peers", fmt.Sprintf(baseURL, pr.Host))
@@ -153,7 +153,7 @@ func (s *State) NetRequestPeerBlocks(pr peer.Peer) error {
 	return nil
 }
 
-// =============================================================================
+// /////////////////////////////////////////////////////////////////
 
 // send is a helper function to send an HTTP request to a node.
 func send(method string, url string, dataSend any, dataRecv any) error {
