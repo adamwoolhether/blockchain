@@ -70,6 +70,14 @@ load3:
 	go run app/wallet/cli/main.go send nikki --to "0x26814dA49253798250D6c00270f2A8A6BC0424b7" --nonce 6 --value 200 --tip 15
 
 # ==============================================================================
+# Viewer Support
+vup:
+	go run app/services/viewer/main.go | go run app/tooling/logfmt/main.go
+
+viewer:
+	open -a "Google Chrome" http://localhost
+
+# ==============================================================================
 # Modules support
 
 deps-reset:
