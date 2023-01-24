@@ -44,6 +44,7 @@ var tipSelect = func(m map[database.AccountID][]database.BlockTx, howMany int) [
 		if len(row) > need {
 			sort.Sort(byTip(row))
 			final = append(final, row[:need]...)
+			break
 		}
 		final = append(final, row...)
 	}
