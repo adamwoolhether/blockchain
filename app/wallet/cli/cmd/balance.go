@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
@@ -28,14 +28,14 @@ var balanceCmd = &cobra.Command{
 	Short: "A brief description of your command",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		acctName := args[0]
-		
+
 		path, err := rootCmd.Flags().GetString("path")
 		if err != nil {
 			return err
 		}
-		
+
 		user := keyPath(acctName, path)
-		
+
 		return runBalance(user)
 	},
 }
@@ -50,25 +50,25 @@ func runBalance(user string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	accountID := database.PublicKeyToAccountID(privateKey.PublicKey)
 	fmt.Println("For Account:", accountID)
-	
-	resp, err := http.Get(fmt.Sprintf("%s/v1/balances/list/%s", url, accountID))
+
+	resp, err := http.Get(fmt.Sprintf("%s/v1/accounts/list/%s", url, accountID))
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	decoder := json.NewDecoder(resp.Body)
 	var balances balances
 	if err := decoder.Decode(&balances); err != nil {
 		return err
 	}
-	
+
 	if len(balances.Balances) > 0 {
 		fmt.Println(balances.Balances[0].Balance)
 	}
-	
+
 	return nil
 }
