@@ -12,7 +12,7 @@ func (s *State) UpsertWalletTransaction(signedTx database.SignedTx) error {
 	// "from" and "to" fields. The wallet should ensure the
 	// account has a proper balance and nonce. Fees are taken if
 	// the tx is mined into block.
-	if err := signedTx.Validate(); err != nil {
+	if err := signedTx.Validate(s.genesis.ChainID); err != nil {
 		return err
 	}
 
@@ -33,7 +33,7 @@ func (s *State) UpsertNodeTransaction(tx database.BlockTx) error {
 
 	// Check the signed transaction has a proper signature and
 	// valid account for the signature.
-	if err := tx.Validate(); err != nil {
+	if err := tx.Validate(s.genesis.ChainID); err != nil {
 		return err
 	}
 
