@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
-	
+
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
@@ -14,15 +14,18 @@ var accountCmd = &cobra.Command{
 	Use:   "account",
 	Short: "Print account for the specific wallet",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		acctName := args[0]
-		
-		path, err := rootCmd.Flags().GetString("path")
+		acctName, err := rootCmd.Flags().GetString("account")
 		if err != nil {
 			return err
 		}
-		
+
+		path, err := rootCmd.Flags().GetString("account-path")
+		if err != nil {
+			return err
+		}
+
 		user := keyPath(acctName, path)
-		
+
 		return runAccount(user)
 	},
 }
@@ -36,9 +39,9 @@ func runAccount(user string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	account := database.PublicKeyToAccountID(privateKey.PublicKey)
 	fmt.Println(account)
-	
+
 	return nil
 }

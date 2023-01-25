@@ -37,7 +37,7 @@ func (h Handlers) SubmitNodeTransaction(ctx context.Context, w http.ResponseWrit
 		return fmt.Errorf("unable to decode payload: %w", err)
 	}
 
-	h.Log.Infow("add tran", "traceid", v.TraceID, "from:nonce", tx, "to", tx.ToID, "value", tx.Value, "tip", tx.Tip)
+	h.Log.Infow("add tran", "traceid", v.TraceID, "sig:nonce", tx, "from", tx.FromID, "to", tx.ToID, "value", tx.Value, "tip", tx.Tip)
 	if err := h.State.UpsertNodeTransaction(tx); err != nil {
 		return v1.NewRequestError(err, http.StatusBadRequest)
 	}
@@ -65,7 +65,7 @@ func (h Handlers) ProposeBlock(ctx context.Context, w http.ResponseWriter, r *ht
 	// for the set of transactions required for blockchain operations.
 	block, err := database.ToBlock(blockData)
 	if err != nil {
-		return fmt.Errorf("unable to decodde block: %w")
+		return fmt.Errorf("unable to decodde block: %w", err)
 	}
 
 	if err := h.State.ProcessProposedBlock(block); err != nil {

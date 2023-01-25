@@ -11,15 +11,18 @@ var generateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Short: "Generate new key pair",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		acctName := args[0]
-		
-		path, err := rootCmd.Flags().GetString("path")
+		acctName, err := rootCmd.Flags().GetString("account")
 		if err != nil {
 			return err
 		}
-		
+
+		path, err := rootCmd.Flags().GetString("account-path")
+		if err != nil {
+			return err
+		}
+
 		dest := keyPath(acctName, path)
-		
+
 		return runKeyGen(dest)
 	},
 }
@@ -33,10 +36,10 @@ func runKeyGen(dest string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if err := crypto.SaveECDSA(dest, privateKey); err != nil {
 		return err
 	}
-	
+
 	return nil
 }

@@ -7,8 +7,9 @@ import (
 // UpsertWalletTransaction accepts a transaction from a wallet for inclusion.
 func (s *State) UpsertWalletTransaction(signedTx database.SignedTx) error {
 
-	// CORE NOTE: Check the signed transaction has proper signature and valid
-	// account for the recipient. The wallet should ensure the
+	// CORE NOTE: Check the signed transaction has proper signature, the "from" account
+	// matches the signatures, and there is a valid account for the
+	// "from" and "to" fields. The wallet should ensure the
 	// account has a proper balance and nonce. Fees are taken if
 	// the tx is mined into block.
 	if err := signedTx.Validate(); err != nil {

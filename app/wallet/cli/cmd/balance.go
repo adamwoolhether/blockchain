@@ -27,9 +27,12 @@ var balanceCmd = &cobra.Command{
 	Use:   "balance",
 	Short: "A brief description of your command",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		acctName := args[0]
+		acctName, err := rootCmd.Flags().GetString("account")
+		if err != nil {
+			return err
+		}
 
-		path, err := rootCmd.Flags().GetString("path")
+		path, err := rootCmd.Flags().GetString("account-path")
 		if err != nil {
 			return err
 		}

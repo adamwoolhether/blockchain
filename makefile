@@ -52,24 +52,24 @@ docker-logs:
 	docker compose -f zarf/docker/docker-compose.yaml logs
 
 load:
-	go run app/wallet/cli/main.go send adam --to "0xA211f66bD829205102c33cAD3A212D7CaD66025D" --nonce 1 --value 450 --tip 15
-	go run app/wallet/cli/main.go send nikki --to "0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5" --nonce 2 --value 200 --tip 15
-	go run app/wallet/cli/main.go send adam --to "0x118947E5266BF8Cd2E730b22f5E66a7868C6DBbC" --nonce 3 --value 100 --tip 15
-	go run app/wallet/cli/main.go send adam --to "0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5" --nonce 4 --value 230 --tip 15
-	go run app/wallet/cli/main.go send adam --to "0x26814dA49253798250D6c00270f2A8A6BC0424b7" --nonce 5 --value 450 --tip 15
-	go run app/wallet/cli/main.go send nikki --to "0x26814dA49253798250D6c00270f2A8A6BC0424b7" --nonce 6 --value 200 --tip 15
+	go run app/wallet/cli/main.go send --account adam --from 0xeCCc29987128DEbee767c1Ec6A6fea3507dEF877 --to 0xA211f66bD829205102c33cAD3A212D7CaD66025D --nonce 1 --value 450 --tip 15
+	go run app/wallet/cli/main.go send --account nikki --from 0xA211f66bD829205102c33cAD3A212D7CaD66025D --to 0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5 --nonce 2 --value 200 --tip 15
+	go run app/wallet/cli/main.go send --account adam --from 0xeCCc29987128DEbee767c1Ec6A6fea3507dEF877 --to 0x118947E5266BF8Cd2E730b22f5E66a7868C6DBbC --nonce 3 --value 100 --tip 15
+	go run app/wallet/cli/main.go send --account adam --from 0xeCCc29987128DEbee767c1Ec6A6fea3507dEF877 --to 0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5 --nonce 4 --value 230 --tip 15
+	go run app/wallet/cli/main.go send --account adam --from 0xeCCc29987128DEbee767c1Ec6A6fea3507dEF877 --to 0x26814dA49253798250D6c00270f2A8A6BC0424b7 --nonce 5 --value 450 --tip 15
+	go run app/wallet/cli/main.go send --account nikki --from 0xA211f66bD829205102c33cAD3A212D7CaD66025D --to 0x26814dA49253798250D6c00270f2A8A6BC0424b7 --nonce 6 --value 200 --tip 15
 
 load2:
-	go run app/wallet/cli/main.go send adam --to "0xA211f66bD829205102c33cAD3A212D7CaD66025D" --nonce 1 --value 450 --tip 15
-	go run app/wallet/cli/main.go send nikki --to "0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5" --nonce 2 --value 200 --tip 15
+	go run app/wallet/cli/main.go send --account adam --from 0xeCCc29987128DEbee767c1Ec6A6fea3507dEF877 --to 0xA211f66bD829205102c33cAD3A212D7CaD66025D --nonce 1 --value 450 --tip 15
+	go run app/wallet/cli/main.go send --account nikki --from 0xA211f66bD829205102c33cAD3A212D7CaD66025D --to 0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5 --nonce 2 --value 200 --tip 15
 
 load3:
-	go run app/wallet/cli/main.go send adam --to "0x118947E5266BF8Cd2E730b22f5E66a7868C6DBbC" --nonce 3 --value 100 --tip 15
-	go run app/wallet/cli/main.go send adam --to "0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5" --nonce 4 --value 230 --tip 15
-	go run app/wallet/cli/main.go send adam --to "0x26814dA49253798250D6c00270f2A8A6BC0424b7" --nonce 5 --value 450 --tip 15
-	go run app/wallet/cli/main.go send nikki --to "0x26814dA49253798250D6c00270f2A8A6BC0424b7" --nonce 6 --value 200 --tip 15
+	go run app/wallet/cli/main.go send --account adam --from 0xeCCc29987128DEbee767c1Ec6A6fea3507dEF877 --to 0x118947E5266BF8Cd2E730b22f5E66a7868C6DBbC --nonce 3 --value 100 --tip 15
+	go run app/wallet/cli/main.go send --account adam --from 0xeCCc29987128DEbee767c1Ec6A6fea3507dEF877 --to 0x4996b5db6639d7775e410C5A2A0Ada4C1D0042E5 --nonce 4 --value 230 --tip 15
+	go run app/wallet/cli/main.go send --account adam --from 0xeCCc29987128DEbee767c1Ec6A6fea3507dEF877 --to 0x26814dA49253798250D6c00270f2A8A6BC0424b7 --nonce 5 --value 450 --tip 15
+	go run app/wallet/cli/main.go send --account nikki --from 0xA211f66bD829205102c33cAD3A212D7CaD66025D --to 0x26814dA49253798250D6c00270f2A8A6BC0424b7 --nonce 6 --value 200 --tip 15
 
-# ==============================================================================
+# ######################################################################################################################
 # Viewer Support
 react:
 	npm install --prefix app/services/viewer
@@ -78,7 +78,7 @@ react:
 viewer:
 	open -a "Google Chrome" http://localhost
 
-# ==============================================================================
+# ######################################################################################################################
 # Modules support
 
 deps-reset:
@@ -95,3 +95,13 @@ deps-upgrade:
 	go get -u -v ./...
 	go mod tidy
 	go mod vendor
+
+######################################################################################################################
+# Tests
+# go install honnef.co/go/tools/cmd/staticcheck@latest
+# go install golang.org/x/vuln/cmd/govulncheck@latest
+
+test:
+	go test -count=1 ./...
+	staticcheck -checks=all ./...
+	govulncheck ./...
