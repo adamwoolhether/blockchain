@@ -71,8 +71,9 @@ load3:
 
 # ==============================================================================
 # Viewer Support
-vup:
-	go run app/services/viewer/main.go | go run app/tooling/logfmt/main.go
+react:
+	npm install --prefix app/services/viewer
+	npm start --prefix app/services/viewer
 
 viewer:
 	open -a "Google Chrome" http://localhost
