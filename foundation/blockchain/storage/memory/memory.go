@@ -1,3 +1,4 @@
+// Package memory implements the ability to read and write blocks to memory using a slice.
 package memory
 
 import (

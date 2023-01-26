@@ -1,3 +1,4 @@
+// Package cmd contains wallet app commands.
 package cmd
 
 import (

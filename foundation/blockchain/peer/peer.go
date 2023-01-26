@@ -1,3 +1,5 @@
+// Package peer maintains peer related information, such as the
+// set of known peers and their state.
 package peer
 
 import "sync"
