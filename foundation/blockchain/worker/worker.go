@@ -12,7 +12,7 @@ import (
 
 // peerUpdateInterval represents the interval of time to find new peer
 // nodes and update the blockchain on disk with missing blocks.
-const peerUpdateInterval = time.Minute
+const peerUpdateInterval = time.Second * 10
 
 // Worker manages the POW workflows for the blockchain.
 type Worker struct {

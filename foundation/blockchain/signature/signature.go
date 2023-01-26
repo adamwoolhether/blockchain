@@ -5,6 +5,7 @@ package signature
 import (
 	"crypto/ecdsa"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -111,6 +112,21 @@ func FromAddress(value any, v, r, s *big.Int) (string, error) {
 // SignatureString returns the signature as a string.
 func SignatureString(v, r, s *big.Int) string {
 	return hexutil.Encode(ToSignatureBytesWithArdanID(v, r, s))
+}
+
+// ToVRSFromHexSignature converts a hex representation of the signature into
+// its R, S and V parts.
+func ToVRSFromHexSignature(sigStr string) (v, r, s *big.Int, err error) {
+	sig, err := hex.DecodeString(sigStr[2:])
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	r = big.NewInt(0).SetBytes(sig[:32])
+	s = big.NewInt(0).SetBytes(sig[32:64])
+	v = big.NewInt(0).SetBytes([]byte{sig[64]})
+
+	return v, r, s, nil
 }
 
 // ToSignatureBytes converts the r, s, v values into a slice of bytes
