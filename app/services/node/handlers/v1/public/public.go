@@ -112,16 +112,15 @@ func (h Handlers) Mempool(ctx context.Context, w http.ResponseWriter, r *http.Re
 
 	mpool := h.State.RetrieveMempool()
 
-	txs := []tx{}
+	txs := make([]tx, 0, len(mpool))
 	for _, t := range mpool {
-		account, _ := t.FromAccount()
-		if acct != "" && ((acct != string(account)) && (acct != string(t.ToID))) {
+		if acct != "" && ((acct != string(t.FromID)) && (acct != string(t.ToID))) {
 			continue
 		}
 
 		txs = append(txs, tx{
-			FromAccount: account,
-			FromName:    h.NS.Lookup(account),
+			FromAccount: t.FromID,
+			FromName:    h.NS.Lookup(t.FromID),
 			To:          t.ToID,
 			ToName:      h.NS.Lookup(t.ToID),
 			ChainID:     t.ChainID,
@@ -206,11 +205,6 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 
 		txs := make([]tx, len(values))
 		for i, tran := range values {
-			account, err := tran.FromAccount()
-			if err != nil {
-				return err
-			}
-
 			rawProof, order, err := blk.MerkleTree.Proof(tran)
 			if err != nil {
 				return err
@@ -221,8 +215,8 @@ func (h Handlers) BlocksByAccount(ctx context.Context, w http.ResponseWriter, r 
 			}
 
 			txs[i] = tx{
-				FromAccount: account,
-				FromName:    h.NS.Lookup(account),
+				FromAccount: tran.FromID,
+				FromName:    h.NS.Lookup(tran.FromID),
 				To:          tran.ToID,
 				ToName:      h.NS.Lookup(tran.ToID),
 				ChainID:     tran.ChainID,

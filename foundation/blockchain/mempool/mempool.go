@@ -111,7 +111,7 @@ func (mp *Mempool) PickBest(howMany ...uint16) []database.BlockTx {
 	}
 
 	// CORE NOTE: Most blockchains do set a max block size limit and this size
-	// will determined which transactions are selected. When picking the best
+	// will determine which transactions are selected. When picking the best
 	// transactions for the next block, the Ardan blockchain is currently not
 	// focused on block size but a max number of transactions.
 	//
@@ -143,13 +143,10 @@ func (mp *Mempool) PickBest(howMany ...uint16) []database.BlockTx {
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-func mapKey(tx database.BlockTx) (string, error) {
-	account, err := tx.FromAccount()
-	if err != nil {
-		return "", err
-	}
 
-	return fmt.Sprintf("%s:%d", account, tx.Nonce), nil
+// mapKey is used to generate the map key.
+func mapKey(tx database.BlockTx) (string, error) {
+	return fmt.Sprintf("%s:%d", tx.FromID, tx.Nonce), nil
 }
 
 // accountFromMapKey extracts the account information from mapkey.
