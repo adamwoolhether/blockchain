@@ -96,6 +96,10 @@ func (tx SignedTx) Validate(chainID uint16) error {
 		return errors.New("to account is not properly formatted")
 	}
 
+	if tx.FromID == tx.ToID {
+		return fmt.Errorf("transaction invalid, sending money to yourself, from %s, to %s", tx.FromID, tx.ToID)
+	}
+
 	if err := signature.VerifySignature(tx.V, tx.R, tx.S); err != nil {
 		return err
 	}

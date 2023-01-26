@@ -7,11 +7,14 @@ import (
 // UpsertWalletTransaction accepts a transaction from a wallet for inclusion.
 func (s *State) UpsertWalletTransaction(signedTx database.SignedTx) error {
 
-	// CORE NOTE: Check the signed transaction has proper signature, the "from" account
-	// matches the signatures, and there is a valid account for the
-	// "from" and "to" fields. The wallet should ensure the
-	// account has a proper balance and nonce. Fees are taken if
-	// the tx is mined into block.
+	// CORE NOTE: The wallet should ensure the account has a
+	// proper balance and nonce. Fees are taken if the tx is mined
+	// into a block, even if it doesn't have enough money to pay
+	// or the nonce isn't the expected nonce for the account.
+
+	// Check the signed transaction has the proper signature, that the
+	// `from` matches the signature, and the `from` and `to` fields are
+	// properly formatted.
 	if err := signedTx.Validate(s.genesis.ChainID); err != nil {
 		return err
 	}
@@ -31,8 +34,9 @@ func (s *State) UpsertWalletTransaction(signedTx database.SignedTx) error {
 // UpsertNodeTransaction accepts a transaction from a node for inclusion.
 func (s *State) UpsertNodeTransaction(tx database.BlockTx) error {
 
-	// Check the signed transaction has a proper signature and
-	// valid account for the signature.
+	// Check the signed transaction has the proper signature, that the
+	// `from` matches the signature, and the `from` and `to` fields are
+	// properly formatted.
 	if err := tx.Validate(s.genesis.ChainID); err != nil {
 		return err
 	}

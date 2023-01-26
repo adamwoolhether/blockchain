@@ -1,23 +1,15 @@
 package state
 
 import (
-	"errors"
-
 	"github.com/adamwoolhether/blockchain/foundation/blockchain/database"
 )
 
 // QueryLatest represents a query to the latest block in the chain.
 const QueryLatest = ^uint64(0) >> 1
 
-// QueryAccounts returns a copy of the database record for the specified account.
-func (s *State) QueryAccounts(account database.AccountID) (database.Account, error) {
-	accounts := s.db.CopyAccounts()
-
-	if info, exists := accounts[account]; exists {
-		return info, nil
-	}
-
-	return database.Account{}, errors.New("not found")
+// QueryAccount returns a copy of the database record for the specified account.
+func (s *State) QueryAccount(account database.AccountID) (database.Account, error) {
+	return s.db.Query(account)
 }
 
 // QueryMempoolLength returns the current length of the mempool.
