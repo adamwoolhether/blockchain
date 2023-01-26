@@ -10,7 +10,7 @@ func (w *Worker) Sync() {
 	w.evHandler("Worker: sync: started")
 	defer w.evHandler("Worker: sync: completed")
 
-	for _, pr := range w.state.RetrieveKnownExternalPeers() {
+	for _, pr := range w.state.KnownExternalPeers() {
 		// Retrieve the status of this peer.
 		peerStatus, err := w.state.NetRequestPeerStatus(pr)
 		if err != nil {
@@ -31,7 +31,7 @@ func (w *Worker) Sync() {
 		}
 
 		// If this peer has blocks we don't have, we need to add them.
-		if peerStatus.LatestBlockNumber > w.state.RetrieveLatestBlock().Header.Number {
+		if peerStatus.LatestBlockNumber > w.state.LatestBlock().Header.Number {
 			w.evHandler("Worker: sync: writePeerBlocks: %s: latestBlockNumber[%d]", pr.Host, peerStatus.LatestBlockNumber)
 
 			if err := w.state.NetRequestPeerBlocks(pr); err != nil {

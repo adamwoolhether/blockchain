@@ -49,7 +49,7 @@ func Run(st *state.State, evHandler state.EventHandler) {
 
 	// Select consensus operation to run.
 	consensusOperation := w.powOperations
-	if st.RetrieveConsensus() == state.ConsensusPOA {
+	if st.Consensus() == state.ConsensusPOA {
 		consensusOperation = w.poaOperations
 	}
 
@@ -111,7 +111,7 @@ func (w *Worker) SignalStartMining() {
 	}
 
 	// Only PoW requires signalling to start mining.
-	if w.state.RetrieveConsensus() != state.ConsensusPOW {
+	if w.state.Consensus() != state.ConsensusPOW {
 		return
 	}
 
@@ -126,7 +126,7 @@ func (w *Worker) SignalStartMining() {
 // to stop immediately.
 func (w *Worker) SignalCancelMining() {
 	// Only PoW requires signalling to cancel mining.
-	if w.state.RetrieveConsensus() != state.ConsensusPOW {
+	if w.state.Consensus() != state.ConsensusPOW {
 		return
 	}
 

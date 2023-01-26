@@ -127,6 +127,8 @@ func (s *State) Shutdown() error {
 	return nil
 }
 
+// /////////////////////////////////////////////////////////////////
+
 // IsMiningAllowed identifies if we are allowed to mine blocks. This
 // might be turned off if the blockchain needs to be re-synced.
 func (s *State) IsMiningAllowed() bool {
@@ -136,44 +138,74 @@ func (s *State) IsMiningAllowed() bool {
 	return s.allowMining
 }
 
-// TurnMiningOn sets the allowMining flag back to true.
-func (s *State) TurnMiningOn() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.allowMining = true
+// Host returns a copy of host information.
+func (s *State) Host() string {
+	return s.host
 }
 
-// Reorganize corrects an identified fork. No mining is allowed to take place
-// while this process is running. New transactions can be placed into the mempool.
-func (s *State) Reorganize() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Don't allow mining to continue.
-	s.allowMining = false
-
-	// Reset the state of the blockchain node.
-	s.db.Reset()
-
-	// Reorganize the state of the blockchain.
-	s.resyncWG.Add(1)
-	go func() {
-		s.evHandler("state: Reorganize: started: ***********************")
-		defer func() {
-			s.TurnMiningOn()
-			s.evHandler("state: Reorganize: completed: ***********************")
-			s.resyncWG.Done()
-		}()
-
-		s.Worker.Sync()
-	}()
-
-	return nil
+// Consensus returns a copy of the consensus algorithm being used.
+func (s *State) Consensus() string {
+	return s.consensus
 }
 
-// Truncate resets the chain both on disk and in memory. This
+// Genesis returns a copy of the genesis information.
+func (s *State) Genesis() genesis.Genesis {
+	return s.genesis
+}
+
+// LatestBlock returns a copy the current latest block.
+func (s *State) LatestBlock() database.Block {
+	return s.db.LatestBlock()
+}
+
+// MempoolLength returns the current length of the mempool.
+func (s *State) MempoolLength() int {
+	return s.mempool.Count()
+}
+
+// Mempool returns a copy of the mempool.
+func (s *State) Mempool() []database.BlockTx {
+	return s.mempool.PickBest()
+}
+
+// UpsertMempool adds a new transaction to the mempool.
+func (s *State) UpsertMempool(tx database.BlockTx) error {
+	return s.mempool.Upsert(tx)
+}
+
+// Accounts returns a copy of the database records.
+func (s *State) Accounts() map[database.AccountID]database.Account {
+	return s.db.Copy()
+}
+
+// /////////////////////////////////////////////////////////////////
+
+// AddKnownPeer provides the ability to add
+// a new peer to the known peer list.
+func (s *State) AddKnownPeer(peer peer.Peer) bool {
+	return s.knownPeers.Add(peer)
+}
+
+// RemoveKnownPeer provides the ability to remove a
+// peer from the known peer list.
+func (s *State) RemoveKnownPeer(peer peer.Peer) {
+	s.knownPeers.Remove(peer)
+}
+
+// KnownExternalPeers retrieves a copy of the known peer list without including this node.
+func (s *State) KnownExternalPeers() []peer.Peer {
+	return s.knownPeers.Copy(s.host)
+}
+
+// KnownPeers retrieves a copy of the full known peer list, including this node.
+// Used by the PoAA selection algorithm.
+func (s *State) KnownPeers() []peer.Peer {
+	return s.knownPeers.Copy("")
+}
+
+/*// Truncate resets the chain both on disk and in memory. This
 // is used to correct an identified fork.
+// DEPRECATED: No longer used
 func (s *State) Truncate() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -187,14 +219,14 @@ func (s *State) Truncate() error {
 	return nil
 }
 
-// // addPeerNode adds a peer to the list of peers.
-// func (s *State) addPeerNode(peer peer.Peer) error {
-// 	// Don't add this node to the known peer list.
-// 	if peer.Match(s.host) {
-// 		return errors.New("already exists")
-// 	}
-//
-// 	s.knownPeers.Add(peer)
-//
-// 	return nil
-// }
+// addPeerNode adds a peer to the list of peers.
+func (s *State) addPeerNode(peer peer.Peer) error {
+	// Don't add this node to the known peer list.
+	if peer.Match(s.host) {
+		return errors.New("already exists")
+	}
+
+	s.knownPeers.Add(peer)
+
+	return nil
+}*/

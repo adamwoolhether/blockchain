@@ -44,7 +44,7 @@ func (s *State) MineNewBlock(ctx context.Context) (database.Block, error) {
 	tx := s.mempool.PickBest(s.genesis.TransPerBlock)
 
 	difficulty := s.genesis.Difficulty
-	if s.RetrieveConsensus() == ConsensusPOA {
+	if s.Consensus() == ConsensusPOA {
 		difficulty = 1
 	}
 
@@ -53,7 +53,7 @@ func (s *State) MineNewBlock(ctx context.Context) (database.Block, error) {
 		BeneficiaryID: s.beneficiaryID,
 		Difficulty:    difficulty,
 		MiningReward:  s.genesis.MiningReward,
-		PrevBlock:     s.RetrieveLatestBlock(),
+		PrevBlock:     s.LatestBlock(),
 		StateRoot:     s.db.HashState(),
 		Tx:            tx,
 		EvHandler:     s.evHandler,

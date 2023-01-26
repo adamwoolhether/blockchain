@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -88,11 +89,6 @@ func VerifySignature(v, r, s *big.Int) error {
 
 // FromAddress extracts the address for the account that signed the data.
 func FromAddress(value any, v, r, s *big.Int) (string, error) {
-	// NOTE: If the same exact data for the given signature is not provided
-	// we will get the wrong from address for this transaction. There is no
-	// way to check this on the node since we don't have a copy of the public
-	// key used. The public key is being extracted from the data and signature.
-
 	// Prepare the data for public key extraction.
 	data, err := stamp(value)
 	if err != nil {
@@ -128,18 +124,13 @@ func stamp(value any) ([]byte, error) {
 		return nil, err
 	}
 
-	// Hash the data v into a 32 byte array. This will
-	// provide a v length consistency with all data.
-	txHash := crypto.Keccak256(v)
-
-	// Convert the stamp into a slice of bytes. This stamp is
-	// used so signatures we produce when signing data
+	// This stamp is used so signatures produced when signing data
 	// are always unique to the Ardan blockchain.
-	stamp := []byte("\x19Ardan Signed Message:\n32")
+	stamp := []byte(fmt.Sprintf("\x19Ardan Signed Message:\n%d", len(v)))
 
 	// Hash the stamp and txHash together in a final 32 byte
 	// array that represents the transaction v.
-	data := crypto.Keccak256(stamp, txHash)
+	data := crypto.Keccak256(stamp, v)
 
 	return data, nil
 }
@@ -158,19 +149,13 @@ func toSignatureValues(sig []byte) (v, r, s *big.Int) {
 func ToSignatureBytes(v, r, s *big.Int) []byte {
 	sig := make([]byte, crypto.SignatureLength)
 
-	rBytes := r.Bytes()
-	if len(rBytes) == 31 {
-		copy(sig[1:], rBytes)
-	} else {
-		copy(sig, rBytes)
-	}
+	rBytes := make([]byte, 32)
+	r.FillBytes(rBytes)
+	copy(sig, rBytes)
 
-	sBytes := s.Bytes()
-	if len(sBytes) == 31 {
-		copy(sig[33:], sBytes)
-	} else {
-		copy(sig[32:], sBytes)
-	}
+	sBytes := make([]byte, 32)
+	s.FillBytes(sBytes)
+	copy(sig[32:], sBytes)
 
 	sig[64] = byte(v.Uint64() - ardanID)
 
