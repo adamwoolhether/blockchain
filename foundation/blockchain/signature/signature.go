@@ -113,37 +113,6 @@ func SignatureString(v, r, s *big.Int) string {
 	return hexutil.Encode(ToSignatureBytesWithArdanID(v, r, s))
 }
 
-// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// stamp returns a hash of 32 bytes that represents this data
-// with the Ardan stamp embedded into the final hash.
-func stamp(value any) ([]byte, error) {
-	// Marshal the v.
-	v, err := json.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-
-	// This stamp is used so signatures produced when signing data
-	// are always unique to the Ardan blockchain.
-	stamp := []byte(fmt.Sprintf("\x19Ardan Signed Message:\n%d", len(v)))
-
-	// Hash the stamp and txHash together in a final 32 byte
-	// array that represents the transaction v.
-	data := crypto.Keccak256(stamp, v)
-
-	return data, nil
-}
-
-// toSignatureValues converts the signature into the r, s, v values.
-func toSignatureValues(sig []byte) (v, r, s *big.Int) {
-	r = new(big.Int).SetBytes(sig[:32])
-	s = new(big.Int).SetBytes(sig[32:64])
-	v = new(big.Int).SetBytes([]byte{sig[64] + ardanID})
-
-	return v, r, s
-}
-
 // ToSignatureBytes converts the r, s, v values into a slice of bytes
 // with the removal of the ardanID.
 func ToSignatureBytes(v, r, s *big.Int) []byte {
@@ -169,4 +138,35 @@ func ToSignatureBytesWithArdanID(v, r, s *big.Int) []byte {
 	sig[64] = byte(v.Uint64())
 
 	return sig
+}
+
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// stamp returns a hash of 32 bytes that represents this data
+// with the Ardan stamp embedded into the final hash.
+func stamp(value any) ([]byte, error) {
+	// Marshal the v.
+	v, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+
+	// This stamp is used so signatures produced when signing data
+	// are always unique to the Ardan blockchain.
+	stamp := []byte(fmt.Sprintf("\x19Ardan Signed Message:\n%d", len(v)))
+
+	// Hash the stamp and txHash together in a final 32 byte
+	// array that represents the transaction v.
+	data := crypto.Keccak256(stamp, v)
+
+	return data, nil
+}
+
+// toSignatureValues converts the signature into the r, s, v values.
+func toSignatureValues(sig []byte) (v, r, s *big.Int) {
+	r = big.NewInt(0).SetBytes(sig[:32])
+	s = big.NewInt(0).SetBytes(sig[32:64])
+	v = big.NewInt(0).SetBytes([]byte{sig[64] + ardanID})
+
+	return v, r, s
 }
