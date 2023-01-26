@@ -135,7 +135,7 @@ func (h Handlers) Mempool(ctx context.Context, w http.ResponseWriter, r *http.Re
 		})
 	}
 
-	return web.Respond(ctx, w, mpool, http.StatusOK)
+	return web.Respond(ctx, w, txs, http.StatusOK)
 }
 
 // Accounts returns the current balances for all users.

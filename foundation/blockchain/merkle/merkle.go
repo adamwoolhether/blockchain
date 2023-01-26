@@ -1,10 +1,10 @@
+// Package merkle provides an implementation of a merkel tree for validation
+// support for the blockchain.
+
 // Copyright 2017 Cameron Bergoon
 // https://github.com/cbergoon/merkletree
 // Licensed under the MIT License, see LICENCE file for details.
 // This code has be refined for generics.
-
-// Package merkle provides an implementation of a merkel tree for validation
-// support for the blockchain.
 
 package merkle
 
